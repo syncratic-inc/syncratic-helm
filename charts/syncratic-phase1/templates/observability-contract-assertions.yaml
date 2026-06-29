@@ -1,0 +1,17 @@
+{{- if .Values.observability.enabled -}}
+  {{- if not .Values.ingress.enabled -}}
+    {{- fail "observability.enabled=true requires ingress.enabled=true for same-domain portal delivery" -}}
+  {{- end -}}
+  {{- if not (.Values.ingress.frontendHost | trim) -}}
+    {{- fail "observability.enabled=true requires ingress.frontendHost" -}}
+  {{- end -}}
+  {{- if and (not (.Values.observability.grafana.adminSecret.existingSecret | trim)) (not .Values.observability.grafana.adminSecret.create) -}}
+    {{- fail "observability.enabled=true requires observability.grafana.adminSecret.existingSecret or observability.grafana.adminSecret.create=true" -}}
+  {{- end -}}
+  {{- if and .Values.observability.grafana.datasources.prometheus.enabled (not (.Values.observability.grafana.datasources.prometheus.url | trim)) -}}
+    {{- fail "observability.grafana.datasources.prometheus.enabled=true requires observability.grafana.datasources.prometheus.url" -}}
+  {{- end -}}
+  {{- if and .Values.observability.grafana.datasources.loki.enabled (not (.Values.observability.grafana.datasources.loki.url | trim)) -}}
+    {{- fail "observability.grafana.datasources.loki.enabled=true requires observability.grafana.datasources.loki.url" -}}
+  {{- end -}}
+{{- end -}}

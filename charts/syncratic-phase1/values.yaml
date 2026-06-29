@@ -1,0 +1,1636 @@
+global:
+  nameOverride: ""
+  fullnameOverride: ""
+  deploymentId: "syncratic-dev"
+  deliveryMode: "bootstrap"
+  firstPartyImageRegistry: ""
+  imagePullSecrets: []
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  maxBodySize: "100m"
+  tls: []
+  publicScheme: "https"
+  frontendHost: ""
+  gatewayHost: ""
+  authHost: ""
+  tlsPolicy:
+    mode: flexible
+    requireTls: false
+    requireIngressClass: false
+    requireHostsCovered: false
+    certManager:
+      enabled: false
+      clusterIssuer: ""
+      issuer: ""
+
+auth:
+  frontendClientId: "syncratic-portal"
+  exposureMode: "gatewayFacade"
+  publicPath: "/auth"
+  gatewayBootstrapPath: "/auth/bootstrap"
+  connectorOAuthRedirectPath: "/connectors/callback"
+  saml:
+    enabled: false
+    # SAML provider metadata and group mappings are tenant-managed from Admin -> Identity.
+    # Enabling this flag declares that the deployment supports SAML group browsing/validation
+    # and requires Keycloak admin provisioning credentials for the gateway.
+    groupDiscoveryMode: keycloak_groups
+  identityProvisioning:
+    enabled: false
+    initialOperatorEnabled: false
+    provider: keycloak
+    adminRealm: ""
+    adminClientId: "syncratic-user-admin"
+    sendRequiredActionEmails: true
+    defaultRequiredActions: "VERIFY_EMAIL,UPDATE_PASSWORD"
+    secret:
+      existingSecret: ""
+      create: false
+      mountPath: /run/secrets/keycloak-provisioning
+      keys:
+        adminClientSecret: KEYCLOAK_ADMIN_CLIENT_SECRET
+      adminClientSecret: ""
+  bootstrapSmtp:
+    enabled: false
+    host: "smtp-relay.brevo.com"
+    port: 587
+    username: "replace-with-smtp-username"
+    useStarttls: true
+    useSsl: false
+    fromEmail: "noreply@syncratic.customer.example"
+    fromName: "Syncratic Notifications"
+    replyTo: ""
+    syncKeycloak: true
+    passwordSecret:
+      existingSecret: ""
+      create: false
+      key: SMTP_PASSWORD
+      password: ""
+  runtimeSecret:
+    existingSecret: ""
+    create: false
+    keys:
+      nextAuthSecret: NEXTAUTH_SECRET
+      keycloakClientSecret: KEYCLOAK_CLIENT_SECRET
+    nextAuthSecret: ""
+    keycloakClientSecret: ""
+
+observability:
+  enabled: false
+  path: "/observability"
+  grafana:
+    replicaCount: 1
+    image:
+      repository: grafana/grafana
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 3000
+    adminSecret:
+      existingSecret: ""
+      create: false
+      keys:
+        username: GF_SECURITY_ADMIN_USER
+        password: GF_SECURITY_ADMIN_PASSWORD
+      username: "admin"
+      password: ""
+    oauth:
+      clientId: "grafana-observability"
+      scopes: "openid email profile roles"
+      allowSignUp: true
+      autoLogin: true
+      roleAttributePath: "contains(roles[*], 'super_admin') && 'Admin' || contains(roles[*], 'syncratic-admin') && 'Admin' || 'None'"
+    datasources:
+      prometheus:
+        enabled: false
+        url: ""
+        isDefault: true
+      loki:
+        enabled: false
+        url: ""
+    dashboards:
+      providerEnabled: true
+      bundledEnabled: false
+      configMaps: []
+    persistence:
+      enabled: false
+      existingClaim: ""
+      size: 5Gi
+      storageClassName: ""
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+    podAnnotations: {}
+    startupProbe:
+      httpGet:
+        path: /api/health
+        port: http
+      failureThreshold: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /api/health
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /api/health
+        port: http
+      initialDelaySeconds: 30
+      periodSeconds: 15
+
+modelBindings:
+  bootstrapSync: false
+  dbOnly: true
+
+networkPolicy:
+  enabled: true
+  allowIngressNamespaceLabels: {}
+  allowAllEgress: true
+  allowChartPodEgress: true
+  ingressController:
+    enabled: false
+    namespaceLabels: {}
+    podLabels: {}
+  dns:
+    enabled: true
+    namespaceLabels:
+      kubernetes.io/metadata.name: kube-system
+    podLabels:
+      k8s-app: kube-dns
+  externalCidrs: []
+  extraEgressRules: []
+
+materialPolicy:
+  sourceMode: flexible
+  manager: bootstrap
+  publishContract: true
+  externalSecrets:
+    enabled: false
+    apiVersion: external-secrets.io/v1beta1
+    refreshInterval: 1h
+    secretStoreRef:
+      kind: ClusterSecretStore
+      name: ""
+    target:
+      creationPolicy: Owner
+      deletionPolicy: Retain
+    remoteKeyPrefix: syncratic-phase1
+    remoteRef:
+      conversionStrategy: Default
+      decodingStrategy: None
+      metadataPolicy: None
+  requireExternalConnectionSecret: false
+  requireExternalTrustBundle: false
+  requireConnectedControlPlaneMtls: false
+
+dependencyTests:
+  enabled: true
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  tcpTargets:
+    postgres:
+      enabled: true
+      url: "{{ ternary (printf \"postgresql://%s:%v/%s\" (include \"syncratic-phase1.postgresHost\" .) .Values.postgres.service.port .Values.postgres.contract.applicationDatabase) .Values.externalServices.postgresUrl .Values.postgres.enabled }}"
+      host: ""
+      port: 5432
+    redis:
+      enabled: true
+      url: "{{ ternary (printf \"redis://%s-redis:%v/0\" (include \"syncratic-phase1.fullname\" .) .Values.redis.service.port) .Values.externalServices.redisUrl .Values.redis.enabled }}"
+      host: ""
+      port: 6379
+    qdrant:
+      enabled: true
+      url: "{{ ternary (printf \"http://%s-qdrant:%v\" (include \"syncratic-phase1.fullname\" .) .Values.qdrant.service.port) .Values.externalServices.qdrantUrl .Values.qdrant.enabled }}"
+      host: ""
+      port: 6333
+    neo4j:
+      enabled: true
+      url: "{{ ternary (printf \"bolt://%s-neo4j:%v\" (include \"syncratic-phase1.fullname\" .) .Values.neo4j.service.boltPort) .Values.externalServices.neo4jUri .Values.neo4j.enabled }}"
+      host: ""
+      port: 7687
+    keycloak:
+      enabled: true
+      url: "{{ ternary (include \"syncratic-phase1.keycloakInternalUrl\" .) .Values.externalServices.keycloakInternalUrl .Values.keycloak.enabled }}"
+      host: ""
+      port: 8080
+    bgeEmbeddings:
+      enabled: true
+      url: "{{ ternary (include \"syncratic-phase1.bgeEmbeddingsUrl\" .) .Values.externalServices.bgeEmbeddingsUrl .Values.bgeEmbeddings.enabled }}"
+      host: ""
+      port: 8000
+    llmFast:
+      enabled: true
+      url: "{{ ternary (include \"syncratic-phase1.llmFastUrl\" .) .Values.externalServices.llmFastUrl .Values.llmFast.enabled }}"
+      host: ""
+      port: 8000
+    llmDeep:
+      enabled: true
+      url: "{{ ternary (include \"syncratic-phase1.llmDeepUrl\" .) .Values.externalServices.llmDeepUrl .Values.llmDeep.enabled }}"
+      host: ""
+      port: 8000
+    transformer:
+      enabled: true
+      url: "{{ ternary (printf \"http://%s-transformer:%v\" (include \"syncratic-phase1.fullname\" .) .Values.transformer.service.port) .Values.externalServices.transformerUrl .Values.transformer.enabled }}"
+      host: ""
+      port: 8091
+
+runtimeTests:
+  enabled: true
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  httpTargets:
+    gateway:
+      enabled: true
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-gateway:{{ .Values.gateway.service.port }}/gateway/ready"
+    systemApiHealth:
+      enabled: true
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-gateway:{{ .Values.gateway.service.port }}/api/v1/system/health"
+    frontend:
+      enabled: true
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-frontend:{{ .Values.frontend.service.port }}/"
+    help:
+      enabled: "{{ .Values.help.enabled }}"
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-help:{{ .Values.help.service.port }}/health"
+    helpCurator:
+      enabled: "{{ and .Values.help.enabled .Values.help.curator.enabled }}"
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-help-curator:{{ .Values.help.curator.service.port }}/health"
+    licensing:
+      enabled: true
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-licensing:{{ .Values.licensing.service.port }}/ready"
+    registration:
+      enabled: "{{ .Values.registration.enabled }}"
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-registration:{{ .Values.registration.service.port }}/ready"
+    keycloak:
+      enabled: "{{ .Values.keycloak.enabled }}"
+      url: "{{ include \"syncratic-phase1.internalKeycloakIssuerUrl\" . }}/.well-known/openid-configuration"
+    observabilityGrafana:
+      enabled: "{{ .Values.observability.enabled }}"
+      url: "http://{{ include \"syncratic-phase1.observabilityGrafanaName\" . }}:{{ .Values.observability.grafana.service.port }}/api/health"
+    evaluation:
+      enabled: "{{ .Values.evaluation.enabled }}"
+      url: "http://{{ include \"syncratic-phase1.fullname\" . }}-evaluation-agent:{{ .Values.evaluation.service.port }}/eval/health"
+    bgeEmbeddings:
+      enabled: "{{ .Values.bgeEmbeddings.enabled }}"
+      url: "{{ include \"syncratic-phase1.bgeEmbeddingsUrl\" . }}/health"
+    llmFast:
+      enabled: "{{ .Values.llmFast.enabled }}"
+      url: "{{ include \"syncratic-phase1.llmFastUrl\" . }}/health"
+    llmDeep:
+      enabled: "{{ .Values.llmDeep.enabled }}"
+      url: "{{ include \"syncratic-phase1.llmDeepUrl\" . }}/health"
+    transformer:
+      enabled: true
+      url: "{{ ternary (printf \"http://%s-transformer:%v/health\" (include \"syncratic-phase1.fullname\" .) .Values.transformer.service.port) \"\" .Values.transformer.enabled }}"
+  tcpTargets:
+    orchestrator:
+      enabled: "{{ .Values.orchestrator.enabled }}"
+      host: "{{ include \"syncratic-phase1.fullname\" . }}-orchestrator"
+      port: "{{ .Values.orchestrator.service.port }}"
+
+materialTests:
+  enabled: true
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  bootstrapRequiredSecretKeys:
+    - ENTITLEMENT_SERVICE_TOKEN
+    - CONNECTOR_TOKEN_ENCRYPTION_KEY
+    - NEO4J_PASSWORD
+  authRequiredSecretKeys:
+    - NEXTAUTH_SECRET
+    - KEYCLOAK_CLIENT_SECRET
+  identityProvisioningRequiredSecretKeys:
+    - KEYCLOAK_ADMIN_CLIENT_SECRET
+  bootstrapSmtpRequiredSecretKeys:
+    - SMTP_PASSWORD
+  keycloakAdminRequiredSecretKeys:
+    - KEYCLOAK_ADMIN
+    - KEYCLOAK_ADMIN_PASSWORD
+  keycloakDbRequiredSecretKeys:
+    - KC_DB_USERNAME
+    - KC_DB_PASSWORD
+  observabilityGrafanaAdminRequiredSecretKeys:
+    - GF_SECURITY_ADMIN_USER
+    - GF_SECURITY_ADMIN_PASSWORD
+  helpRequiredSecretKeys:
+    - HELP_GATEWAY_TOKEN
+  helpCuratorRequiredSecretKeys:
+    - HELP_CURATOR_GATEWAY_TOKEN
+  evaluationRequiredSecretKeys:
+    - EVAL_INTERNAL_TRIGGER_TOKEN
+    - EVAL_SERVICE_GATEWAY_API_KEY
+  orchestratorRequiredSecretKeys:
+    - N8N_BASIC_AUTH_PASSWORD
+  postgresRequiredSecretKeys:
+    - POSTGRES_PASSWORD
+    - DATABASE_URL
+    - EVAL_DB_DSN
+    - GATEWAY_MIGRATION_DSN
+    - DB_POSTGRESDB_PASSWORD
+  publicKeyConfig:
+    requireNonEmptyKeySet: true
+  registrationPublicKeyConfig:
+    requireNonEmptyKeySet: true
+
+ingressTests:
+  enabled: true
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+
+security:
+  existingSecret: ""
+  bootstrapSecret:
+    create: true
+    entitlementServiceToken: "syncratic-les-internal-v1"
+    nextAuthSecret: ""
+    keycloakClientSecret: ""
+    connectorTokenEncryptionKey: ""
+    neo4jPassword: "syncratic-neo4j-v1"
+
+externalServices:
+  connectionSecret:
+    existingSecret: ""
+    keys:
+      postgresUrl: DATABASE_URL
+      gatewayMigrationDsn: GATEWAY_MIGRATION_DSN
+      redisUrl: REDIS_URL
+      qdrantUrl: QDRANT_URL
+      neo4jUri: NEO4J_URI
+      neo4jUsername: NEO4J_USERNAME
+      neo4jPassword: NEO4J_PASSWORD
+      keycloakInternalUrl: KEYCLOAK_INTERNAL_URL
+      bgeEmbeddingsUrl: BGE_EMBEDDINGS_URL
+      llmFastUrl: LLM_FAST_URL
+      llmDeepUrl: LLM_DEEP_URL
+      transformerUrl: TRANSFORMER_URL
+  trustBundle:
+    existingConfigMap: ""
+    existingSecret: ""
+    key: ca.crt
+    mountPath: /etc/syncratic/external-trust
+  postgresUrl: "postgresql+psycopg://postgres:postgres@rag-pg:5432/syncratic_rag"
+  gatewayMigrationDsn: "postgresql://postgres:postgres@rag-pg:5432/syncratic_rag"
+  redisUrl: "redis://redis:6379/0"
+  qdrantUrl: "http://qdrant:6333"
+  neo4jUri: "bolt://neo4j:7687"
+  keycloakInternalUrl: "http://keycloak:8080"
+  keycloakRealm: "syncratic"
+  bgeEmbeddingsUrl: "http://bge-emb:8000"
+  llmFastUrl: "http://qwen3-3b:8000"
+  llmDeepUrl: "http://qwen3-14b:8000"
+  transformerUrl: "http://artifact-transformer:8091"
+  # Tenant-specific connector OAuth credentials should be configured at runtime
+  # through the product admin surface. Keep environment-level connector provider
+  # credentials as optional platform fallback only.
+
+keycloak:
+  enabled: false
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "25.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  proxyMode: "edge"
+  adminSecret:
+    existingSecret: ""
+    create: false
+    keys:
+      username: KEYCLOAK_ADMIN
+      password: KEYCLOAK_ADMIN_PASSWORD
+    username: "admin"
+    password: ""
+  database:
+    existingSecret: ""
+    create: false
+    keys:
+      username: KC_DB_USERNAME
+      password: KC_DB_PASSWORD
+    username: "keycloak"
+    password: ""
+    image:
+      repository: postgres
+      tag: "16"
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 5432
+    persistence:
+      size: 10Gi
+      storageClassName: ""
+  realm:
+    existingConfigMap: ""
+    existingSecret: ""
+    create: false
+    key: realm.json
+    json: ""
+  theme:
+    enabled: false
+    name: syncratic
+    configMap:
+      create: true
+      existingConfigMap: ""
+    initImage:
+      repository: busybox
+      tag: "1.36"
+      pullPolicy: IfNotPresent
+  resources: {}
+  podAnnotations: {}
+  startupProbe:
+    httpGet:
+      path: /realms/{{ .Values.externalServices.keycloakRealm }}
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /realms/{{ .Values.externalServices.keycloakRealm }}
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /realms/{{ .Values.externalServices.keycloakRealm }}
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+bgeEmbeddings:
+  enabled: false
+  image:
+    repository: vllm/vllm-openai
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  model:
+    name: "BAAI/bge-base-en-v1.5"
+    servedModelName: "bge-emb"
+    gpuMemoryUtilization: "0.05"
+    maxModelLen: "512"
+  env:
+    hfHome: /cache/hf
+  resources: {}
+  podAnnotations: {}
+  args: []
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 15
+
+llmFast:
+  enabled: false
+  image:
+    repository: vllm/vllm-openai
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  model:
+    name: "Qwen/Qwen2.5-3B-Instruct"
+    servedModelName: "qwen3-3b"
+    dtype: "float16"
+    gpuMemoryUtilization: "0.20"
+    maxModelLen: "4096"
+  env:
+    hfHome: /cache/hf
+  resources: {}
+  podAnnotations: {}
+  args: []
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 15
+
+llmDeep:
+  enabled: false
+  image:
+    repository: vllm/vllm-openai
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  model:
+    name: "Qwen/Qwen2.5-14B-Instruct"
+    servedModelName: "qwen3-14b"
+    dtype: "float16"
+    gpuMemoryUtilization: "0.70"
+    maxModelLen: "8192"
+  env:
+    hfHome: /cache/hf
+  resources: {}
+  podAnnotations: {}
+  args: []
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 15
+
+postgres:
+  enabled: false
+  contract:
+    applicationDatabase: "syncratic_rag"
+    applicationUser: "postgres"
+    orchestratorDatabase: "n8n"
+    orchestratorUser: "postgres"
+  auth:
+    existingSecret: ""
+    create: true
+    keys:
+      adminPassword: POSTGRES_PASSWORD
+      applicationDsn: DATABASE_URL
+      evaluationDsn: EVAL_DB_DSN
+      gatewayMigrationDsn: GATEWAY_MIGRATION_DSN
+      orchestratorPassword: DB_POSTGRESDB_PASSWORD
+    password: "syncratic-postgres-v1"
+  image:
+    repository: postgres
+    tag: "15"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5432
+  resources: {}
+  podAnnotations: {}
+  persistence:
+    size: 20Gi
+    storageClassName: ""
+  startupProbe:
+    tcpSocket:
+      port: postgres
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    tcpSocket:
+      port: postgres
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  livenessProbe:
+    tcpSocket:
+      port: postgres
+    initialDelaySeconds: 15
+    periodSeconds: 15
+
+redis:
+  enabled: false
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6379
+  resources: {}
+  podAnnotations: {}
+  persistence:
+    size: 5Gi
+    storageClassName: ""
+  extraArgs:
+    - --appendonly
+    - "yes"
+    - --save
+    - "60 1"
+  startupProbe:
+    tcpSocket:
+      port: redis
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    tcpSocket:
+      port: redis
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  livenessProbe:
+    tcpSocket:
+      port: redis
+    initialDelaySeconds: 15
+    periodSeconds: 15
+
+qdrant:
+  enabled: false
+  image:
+    repository: qdrant/qdrant
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6333
+  resources: {}
+  podAnnotations: {}
+  persistence:
+    size: 10Gi
+    storageClassName: ""
+  startupProbe:
+    tcpSocket:
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  livenessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 15
+
+neo4j:
+  enabled: false
+  image:
+    repository: neo4j
+    tag: "5.26-community"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    httpPort: 7474
+    boltPort: 7687
+  resources: {}
+  podAnnotations: {}
+  persistence:
+    dataSize: 20Gi
+    logsSize: 5Gi
+    storageClassName: ""
+  config:
+    heapInitialSize: 512m
+    heapMaxSize: 512m
+    pageCacheSize: 512m
+  startupProbe:
+    tcpSocket:
+      port: bolt
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    tcpSocket:
+      port: bolt
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    tcpSocket:
+      port: bolt
+    initialDelaySeconds: 20
+    periodSeconds: 15
+
+gateway:
+  enabled: true
+  exposeLegacyLlmfs: false
+  replicaCount: 1
+  migrationHook:
+    enabled: true
+    backoffLimit: 1
+    deletePolicy: before-hook-creation,hook-succeeded
+  initialOperatorBootstrapSecret:
+    existingSecret: ""
+    create: false
+    mountPath: /run/secrets/initial-operator-bootstrap
+    keys:
+      bootstrapArtifact: les-initial-operator-bootstrap.json
+    bootstrapArtifactJson: ""
+  image:
+    repository: syncratic/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  podAnnotations: {}
+  networkFileShares:
+    enabled: false
+    # Comma-separated allow-list passed to the gateway as LLMFS_NETWORK_SHARE_ALLOWED_ROOTS.
+    # Keep this restricted to deployment-owned mount prefixes that are exposed below.
+    allowedRoots: "/mnt/syncratic-shares"
+    # Deployment-owned mounted shares. Syncratic does not mount NFS/SMB/CIFS itself;
+    # these volumes must reference existing PVCs or host paths prepared by the platform operator.
+    mounts: []
+    # Example:
+    # mounts:
+    #   - name: contracts-share
+    #     mountPath: /mnt/syncratic-shares/contracts
+    #     readOnly: true
+    #     existingClaim: contracts-share-pvc
+    #   - name: procurement-share
+    #     mountPath: /mnt/syncratic-shares/procurement
+    #     readOnly: true
+    #     hostPath:
+    #       path: /mnt/customer-procurement-share
+    #       type: Directory
+  notifications:
+    dispatcher:
+      enabled: false
+      batchSize: 20
+      intervalSeconds: 15
+      maxAttempts: 5
+      retryBaseSeconds: 60
+    webhook:
+      enabled: false
+      url: ""
+      timeoutSeconds: 5
+      tokenSecret:
+        existingSecret: ""
+        create: false
+        key: NOTIFICATION_WEBHOOK_TOKEN
+        token: ""
+  extraEnv:
+    AUTH_SESSION_TTL_SECONDS: "300"
+    LLM_MODEL: "qwen3-14b"
+    LLMFS_REDIS_WORKER_LEASE_S: "300"
+    LLMFS_REDIS_WORKER_MAX_ATTEMPTS: "3"
+    LLMFS_ENABLE_REDIS_ENRICHMENT_QUEUE: "true"
+    LLMFS_ENABLE_REDIS_GRAPH_QUEUE: "true"
+    LLMFS_ENABLE_REDIS_KNOWLEDGE_QUEUE: "true"
+    LLMFS_ENABLE_REDIS_DELTA_QUEUE: "true"
+    LLMFS_ENABLE_REDIS_ASSURANCE_CRITERIA_QUEUE: "true"
+    LLMFS_ENABLE_KEE_RETRIEVAL_INFLUENCE: "true"
+    LLMFS_RUN_ENRICHMENT_WORKER: "false"
+    LLMFS_RUN_GRAPH_WORKER: "false"
+    LLMFS_RUN_KNOWLEDGE_WORKER: "false"
+    LLMFS_RUN_DELTA_WORKER: "false"
+    LLMFS_RUN_ASSURANCE_CRITERIA_WORKER: "false"
+    LLMFS_ENABLE_GRAPH_ENRICHMENT: "true"
+    LLMFS_ENABLE_GRAPH_RETRIEVAL: "true"
+    LLMFS_ENABLE_GRAPH_CITATIONS: "false"
+    LLMFS_ENABLE_SLM_GRAPH_DECOMPOSITION: "true"
+    LLMFS_GRAPH_EXTRACTION_MODEL: "qwen3-14b"
+    LLMFS_GRAPH_DECOMPOSITION_MAX_WINDOWS: "12"
+    LLMFS_GRAPH_DECOMPOSITION_MAX_CHARS_PER_WINDOW: "500"
+    LLMFS_GRAPH_DECOMPOSITION_TIMEOUT_S: "60"
+    LLMFS_GRAPH_PATH_MIN_RELATIONSHIPS: "2"
+    LLMFS_GRAPH_EVIDENCE_MIN_SCORE: "0.8"
+    LLMFS_ASK_GRAPH_CITATION_LIMIT: "1"
+    LLM_ASK_FAST_MODEL: "qwen3-3b"
+    LLM_ASK_FAST_QUERY_TYPES: "identity_lookup,fact_lookup,entity_date_lookup,section_lookup,clause_policy_lookup"
+    LLM_ASK_BASIC_MODEL: "qwen3-3b"
+    LLM_ASK_DEEP_MODEL: "qwen3-14b"
+    LLM_ASK_CONNECT_TIMEOUT_S: "20"
+    LLM_ASK_READ_TIMEOUT_S: "300"
+    LLM_ASK_WRITE_TIMEOUT_S: "60"
+    LLM_ASK_POOL_TIMEOUT_S: "20"
+    LLM_ASK_IDENTITY_LOOKUP_MAX_TOKENS: "260"
+    LLMFS_ASK_DISABLE_FILTERS: "true"
+    LLMFS_ASK_DIRECT_FULLDOC_MODE: "true"
+    LLMFS_ASK_DIRECT_FULLDOC_FETCH_K: "6"
+    LLMFS_ASK_DIRECT_FULLDOC_MAX_DOCS: "3"
+    LLMFS_ASK_DIRECT_FULLDOC_MAX_CHARS_PER_DOC: "8000"
+    LLMFS_ASK_DIRECT_FULLDOC_MAX_TOTAL_CHARS: "16000"
+    LLMFS_ASK_DIRECT_FULLDOC_MAX_TOKENS: "500"
+    CONNECTOR_WORKER_ENABLED: "false"
+    CONNECTOR_WORKER_INTERVAL_S: "60"
+    TRANSFORMER_ENABLE_PDF: "true"
+    ENTITLEMENT_ENABLED: "true"
+    ENTITLEMENT_CACHE_TTL_SECONDS: "60"
+    ENTITLEMENT_FAIL_OPEN: "true"
+    ENTITLEMENT_REQUEST_TIMEOUT_MS: "1500"
+    ENTITLEMENT_WORKER_SEAT_LEASE_SECONDS: "120"
+    ENTITLEMENT_WORKER_SEAT_RENEW_INTERVAL_SECONDS: "30"
+    GATEWAY_AUTO_APPLY_MIGRATIONS: "true"
+    GATEWAY_REQUIRE_MIGRATIONS_AT_STARTUP: "true"
+  operationsReadiness:
+    enabled: false
+    evidenceVolume:
+      enabled: false
+      existingClaim: ""
+      mountPath: /srv/syncratic
+      readOnly: true
+    paths:
+      lesRetentionSummary: ""
+      lesPolicySummary: ""
+      lesDueEvaluation: ""
+      lesOperationalEvidence: ""
+      backupManifest: ""
+      restoreDrillSummary: ""
+      recoveryPackageManifest: ""
+      alertingManifest: ""
+      accessReplaySummary: ""
+      connectorProofSummary: ""
+      secretGovernanceManifest: ""
+      edgeIngressProofSummary: ""
+      privacyEngineRuntimeConfigProof: ""
+      productionEvidencePackageManifest: ""
+  persistence:
+    uploads:
+      enabled: true
+      existingClaim: ""
+      size: 20Gi
+      storageClassName: ""
+    docs:
+      enabled: false
+      existingClaim: ""
+      mountPath: /syncradocs
+  startupProbe:
+    httpGet:
+      path: /gateway/health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /gateway/ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /gateway/health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+runtimeNodeAgent:
+  enabled: true
+  image:
+    repository: syncratic/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  podAnnotations: {}
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  extraEnv:
+    ENTITLEMENT_ENABLED: "true"
+    ENTITLEMENT_FAIL_OPEN: "true"
+    ENTITLEMENT_REQUEST_TIMEOUT_MS: "1500"
+    ENTITLEMENT_NODE_TYPE: "standard"
+    ENTITLEMENT_NODE_HOLDER_KIND: "runtime_node"
+    ENTITLEMENT_NODE_INSTANCE_ID: "{{ .Release.Name }}"
+    ENTITLEMENT_NODE_GPU_ENABLED: "false"
+    ENTITLEMENT_NODE_SEAT_LEASE_SECONDS: "180"
+    ENTITLEMENT_NODE_SEAT_RENEW_INTERVAL_SECONDS: "60"
+  updateStrategy:
+    type: RollingUpdate
+  livenessProbe:
+    exec:
+      command:
+        - python
+        - -c
+        - print('ok')
+    initialDelaySeconds: 15
+    periodSeconds: 30
+  readinessProbe:
+    exec:
+      command:
+        - python
+        - -c
+        - print('ok')
+    initialDelaySeconds: 5
+    periodSeconds: 15
+
+runtimeWorkers:
+  enabled: true
+  image:
+    repository: syncratic/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  podAnnotations: {}
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  workers:
+    - name: enrichment
+      enabled: true
+      replicaCount: 1
+      mode: enrichment
+      resources: {}
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 4
+        targetCPUUtilizationPercentage: 70
+        targetMemoryUtilizationPercentage: 80
+      extraEnv:
+        LLMFS_REDIS_WORKER_LEASE_S: "300"
+        LLMFS_REDIS_WORKER_MAX_ATTEMPTS: "3"
+        LLMFS_ENABLE_REDIS_ENRICHMENT_QUEUE: "true"
+        LLMFS_ENABLE_REDIS_DELTA_QUEUE: "true"
+        LLMFS_RUN_ENRICHMENT_WORKER: "true"
+        LLMFS_RUN_GRAPH_WORKER: "false"
+        LLMFS_RUN_KNOWLEDGE_WORKER: "false"
+        LLMFS_RUN_DELTA_WORKER: "false"
+        LLMFS_RUN_ASSURANCE_CRITERIA_WORKER: "false"
+        ENTITLEMENT_ENABLED: "true"
+        ENTITLEMENT_FAIL_OPEN: "true"
+        ENTITLEMENT_REQUEST_TIMEOUT_MS: "1500"
+        ENTITLEMENT_WORKER_SEAT_LEASE_SECONDS: "120"
+        ENTITLEMENT_WORKER_SEAT_RENEW_INTERVAL_SECONDS: "30"
+    - name: graph
+      enabled: true
+      replicaCount: 1
+      mode: graph
+      resources: {}
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 4
+        targetCPUUtilizationPercentage: 70
+        targetMemoryUtilizationPercentage: 80
+      extraEnv:
+        LLMFS_REDIS_WORKER_LEASE_S: "300"
+        LLMFS_REDIS_WORKER_MAX_ATTEMPTS: "3"
+        LLMFS_ENABLE_REDIS_GRAPH_QUEUE: "true"
+        LLMFS_ENABLE_GRAPH_ENRICHMENT: "true"
+        LLMFS_ENABLE_SLM_GRAPH_DECOMPOSITION: "true"
+        LLMFS_GRAPH_EXTRACTION_MODEL: "qwen3-14b"
+        LLMFS_GRAPH_DECOMPOSITION_MAX_WINDOWS: "12"
+        LLMFS_GRAPH_DECOMPOSITION_MAX_CHARS_PER_WINDOW: "500"
+        LLMFS_GRAPH_DECOMPOSITION_TIMEOUT_S: "60"
+        LLMFS_RUN_ENRICHMENT_WORKER: "false"
+        LLMFS_RUN_GRAPH_WORKER: "true"
+        LLMFS_RUN_KNOWLEDGE_WORKER: "false"
+        LLMFS_RUN_DELTA_WORKER: "false"
+        LLMFS_RUN_ASSURANCE_CRITERIA_WORKER: "false"
+        ENTITLEMENT_ENABLED: "true"
+        ENTITLEMENT_FAIL_OPEN: "true"
+        ENTITLEMENT_REQUEST_TIMEOUT_MS: "1500"
+        ENTITLEMENT_WORKER_SEAT_LEASE_SECONDS: "120"
+        ENTITLEMENT_WORKER_SEAT_RENEW_INTERVAL_SECONDS: "30"
+    - name: delta
+      enabled: true
+      replicaCount: 1
+      mode: delta
+      resources: {}
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 4
+        targetCPUUtilizationPercentage: 70
+        targetMemoryUtilizationPercentage: 80
+      extraEnv:
+        LLMFS_REDIS_WORKER_LEASE_S: "300"
+        LLMFS_REDIS_WORKER_MAX_ATTEMPTS: "3"
+        LLMFS_ENABLE_DOCUMENT_DELTA_ENGINE: "true"
+        LLMFS_ENABLE_REDIS_DELTA_QUEUE: "true"
+        LLMFS_RUN_ENRICHMENT_WORKER: "false"
+        LLMFS_RUN_GRAPH_WORKER: "false"
+        LLMFS_RUN_KNOWLEDGE_WORKER: "false"
+        LLMFS_RUN_DELTA_WORKER: "true"
+        LLMFS_RUN_ASSURANCE_CRITERIA_WORKER: "false"
+        ENTITLEMENT_ENABLED: "true"
+        ENTITLEMENT_FAIL_OPEN: "true"
+        ENTITLEMENT_REQUEST_TIMEOUT_MS: "1500"
+        ENTITLEMENT_WORKER_SEAT_LEASE_SECONDS: "120"
+        ENTITLEMENT_WORKER_SEAT_RENEW_INTERVAL_SECONDS: "30"
+    - name: knowledge
+      enabled: true
+      replicaCount: 1
+      mode: knowledge
+      resources: {}
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 4
+        targetCPUUtilizationPercentage: 70
+        targetMemoryUtilizationPercentage: 80
+      extraEnv:
+        LLMFS_REDIS_WORKER_LEASE_S: "300"
+        LLMFS_REDIS_WORKER_MAX_ATTEMPTS: "3"
+        LLMFS_ENABLE_REDIS_KNOWLEDGE_QUEUE: "true"
+        LLMFS_RUN_ENRICHMENT_WORKER: "false"
+        LLMFS_RUN_GRAPH_WORKER: "false"
+        LLMFS_RUN_KNOWLEDGE_WORKER: "true"
+        LLMFS_RUN_DELTA_WORKER: "false"
+        LLMFS_RUN_ASSURANCE_CRITERIA_WORKER: "false"
+        ENTITLEMENT_ENABLED: "true"
+        ENTITLEMENT_FAIL_OPEN: "true"
+        ENTITLEMENT_REQUEST_TIMEOUT_MS: "1500"
+        ENTITLEMENT_WORKER_SEAT_LEASE_SECONDS: "120"
+        ENTITLEMENT_WORKER_SEAT_RENEW_INTERVAL_SECONDS: "30"
+    - name: assurance-criteria
+      enabled: true
+      replicaCount: 1
+      mode: assurance_criteria
+      resources: {}
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 4
+        targetCPUUtilizationPercentage: 70
+        targetMemoryUtilizationPercentage: 80
+      extraEnv:
+        LLMFS_REDIS_WORKER_LEASE_S: "300"
+        LLMFS_REDIS_WORKER_MAX_ATTEMPTS: "3"
+        LLMFS_ENABLE_REDIS_ASSURANCE_CRITERIA_QUEUE: "true"
+        LLMFS_RUN_ENRICHMENT_WORKER: "false"
+        LLMFS_RUN_GRAPH_WORKER: "false"
+        LLMFS_RUN_KNOWLEDGE_WORKER: "false"
+        LLMFS_RUN_DELTA_WORKER: "false"
+        LLMFS_RUN_ASSURANCE_CRITERIA_WORKER: "true"
+        ENTITLEMENT_ENABLED: "true"
+        ENTITLEMENT_FAIL_OPEN: "true"
+        ENTITLEMENT_REQUEST_TIMEOUT_MS: "1500"
+        ENTITLEMENT_WORKER_SEAT_LEASE_SECONDS: "120"
+        ENTITLEMENT_WORKER_SEAT_RENEW_INTERVAL_SECONDS: "30"
+
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: syncratic/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  nginx:
+    clientMaxBodySize: "100m"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  podAnnotations: {}
+  extraEnv:
+    ENABLE_DEBUG_PANEL: "true"
+    LOG_LEVEL: "debug"
+    NODE_ENV: "production"
+    HOSTNAME: "0.0.0.0"
+    PORT: "80"
+    NEXT_PUBLIC_APP_NAME: "Syncratic"
+    NEXT_PUBLIC_API_BASE: "/api"
+    INTERNAL_API_KEY: "key-internal-syncratic-123"
+  startupProbe:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - "ps | grep 'nginx: master process' > /dev/null"
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+help:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: syncratic/help-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8097
+  tenantId: syncratic_help_public
+  gatewayTokenSecret:
+    existingSecret: ""
+    create: true
+    keys:
+      helpGatewayToken: HELP_GATEWAY_TOKEN
+      curatorGatewayToken: HELP_CURATOR_GATEWAY_TOKEN
+    helpGatewayToken: ""
+    curatorGatewayToken: ""
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  podAnnotations: {}
+  extraEnv:
+    HELP_LOG_LEVEL: "INFO"
+    HELP_GATEWAY_TIMEOUT_SECONDS: "10"
+    HELP_MAX_ARTICLE_AGE_HOURS: "24"
+  persistence:
+    existingClaim: ""
+    size: 2Gi
+    storageClassName: ""
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+  curator:
+    enabled: false
+    image:
+      repository: syncratic/help-curator-service
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8098
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+    podAnnotations: {}
+    docs:
+      existingClaim: ""
+      mountPath: /workspace/docs
+    extraEnv:
+      HELP_CURATOR_GATEWAY_INGEST_PATH: "/llmfs/upload-folder"
+      HELP_CURATOR_TARGET_ROOT: "/docs"
+      HELP_CURATOR_RECONCILE_ENABLED: "true"
+      HELP_CURATOR_RECONCILE_INTERVAL_SECONDS: "86400"
+      HELP_CURATOR_RECONCILE_INITIAL_DELAY_SECONDS: "30"
+      HELP_CURATOR_LOG_LEVEL: "INFO"
+    startupProbe:
+      httpGet:
+        path: /health
+        port: http
+      failureThreshold: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 30
+      periodSeconds: 15
+
+licensing:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: syncratic/licensing-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8085
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  podAnnotations: {}
+  publicKeys:
+    existingConfigMap: ""
+    existingSecret: ""
+    create: true
+    key: public_keys.json
+    json: |
+      {
+        "keys": []
+      }
+  controlPlane:
+    mode: offline
+    url: ""
+    licenseStatusPath: /v1/license/status-sync
+    updateDiscoveryPath: /v1/update/discovery
+    heartbeatPath: /v1/heartbeat
+    tokenSecret:
+      existingSecret: ""
+      key: CONTROL_PLANE_TOKEN
+      mountPath: /run/secrets/licensing-control-plane
+      fileName: control-plane-token.txt
+    tls:
+      caConfigMap: ""
+      caSecret: ""
+      caKey: ca.crt
+      mountPath: /etc/syncratic/control-plane-tls
+      clientSecret: ""
+      clientCertKey: tls.crt
+      clientKeyKey: tls.key
+  renewal:
+    enabled: false
+    schedule: "0 3 * * *"
+    suspend: false
+    dueWithinDays: 30
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+    concurrencyPolicy: Forbid
+    backoffLimit: 1
+    summaryDir: /tmp/les-renewal-summary
+    image:
+      repository: ""
+      tag: ""
+      pullPolicy: ""
+    runtimeOutputSecret:
+      existingSecret: ""
+      create: false
+      mountPath: /run/secrets/les-runtime-output-source
+      workingDir: /tmp/les-runtime-output
+      keys:
+        controlPlaneJson: les-control-plane.json
+        enrollmentReceiptJson: les-enrollment-receipt.json
+        machinePrivateKeyPem: les-machine-identity-private-key.pem
+        mtlsStateJson: les-mtls-state.json
+        clientCertPem: les-control-plane-client.crt
+        clientKeyPem: les-control-plane-client.key
+      controlPlaneJson: ""
+      enrollmentReceiptJson: ""
+      machinePrivateKeyPem: ""
+      mtlsStateJson: ""
+      clientCertPem: ""
+      clientKeyPem: ""
+  extraEnv:
+    LES_GRACE_DAYS: "14"
+    LES_BINDING_MODE: "deployment_id_only"
+    LES_LOG_LEVEL: "INFO"
+    LES_ARTIFACT_VERIFICATION_POLICY: "warn"
+    LES_PRODUCT_VERSION: "dev"
+    LES_UPDATE_BUNDLE_APPLY_TIMEOUT_SECONDS: "900"
+    LES_UPDATE_BUNDLE_ROLLBACK_TIMEOUT_SECONDS: "900"
+  persistence:
+    size: 5Gi
+    storageClassName: ""
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+registration:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: syncratic/registration-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8096
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  podAnnotations: {}
+  publicKeys:
+    existingConfigMap: ""
+    existingSecret: ""
+    create: true
+    key: public_keys.json
+    json: |
+      {}
+  allowedBootstrapKeyIds: ""
+  bootstrapAuthority:
+    existingSecret: ""
+    create: false
+    activeKeyId: ""
+    issuerName: Syncratic Registration Authority
+    tokenMaxTtlSeconds: 3600
+    keys:
+      privateKey: active.key
+    privateKeyPem: ""
+  installType: issuer_runtime_v1
+  secretSetName: issuer_runtime_v1
+  signerCallerId: issuer_service
+  les:
+    installType: les_runtime_v1
+    secretSetName: les_runtime_v1
+    bootstrapCallerId: les_control_plane
+    controlPlane:
+      url: https://control.syncratic.example
+      caPem: ""
+      licenseStatusPath: /v1/license/status-sync
+      updateDiscoveryPath: /v1/update/discovery
+      heartbeatPath: /v1/heartbeat
+    bootstrapTokenTtlSeconds: 900
+    steadyStateAuthMode: bootstrap_token
+    licenseHandoffMode: issuer_request_bundle
+    localInstallEndpoint: /license/install
+    mtls:
+      clientValidityDays: 365
+      clientOrg: Syncratic
+      clientOu: LES
+      caSecret:
+        existingSecret: ""
+        create: false
+        keys:
+          cert: tls.crt
+          key: tls.key
+        certPem: ""
+        keyPem: ""
+    initialLicenseSecret:
+      existingSecret: ""
+      create: false
+      keys:
+        licenseJson: initial-license.json
+      licenseJson: ""
+  adminTokenSecret:
+    existingSecret: ""
+    create: false
+    keys:
+      adminToken: REGISTRATION_ADMIN_TOKEN
+    adminToken: ""
+  persistence:
+    existingClaim: ""
+    size: 2Gi
+    storageClassName: ""
+  extraEnv:
+    REGISTRATION_AUTO_APPLY_MIGRATIONS: "true"
+    REGISTRATION_REQUIRE_MIGRATIONS_AT_STARTUP: "false"
+    REGISTRATION_LOG_LEVEL: "INFO"
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+evaluation:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: syncratic/evaluation-agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8090
+  runtimeSecret:
+    existingSecret: ""
+    create: false
+    keys:
+      internalTriggerToken: EVAL_INTERNAL_TRIGGER_TOKEN
+      serviceGatewayApiKey: EVAL_SERVICE_GATEWAY_API_KEY
+      serviceTenantId: EVAL_SERVICE_TENANT_ID
+    internalTriggerToken: ""
+    serviceGatewayApiKey: ""
+    serviceTenantId: ""
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  podAnnotations: {}
+  persistence:
+    managedSuites:
+      existingClaim: ""
+      size: 5Gi
+      storageClassName: ""
+  extraEnv:
+    APP_ENV: "production"
+    EVAL_DEFAULT_SUITE_PATH: "/app/sample_suites"
+    EVAL_ENABLE_SCHEDULER: "false"
+    EVAL_ENABLE_LLM_JUDGE: "true"
+    EVAL_REQUIRE_RUNTIME_MODEL_BINDINGS: "true"
+    EVAL_LLM_JUDGE_MODEL: "qwen3-14b"
+    EVAL_LOG_LEVEL: "INFO"
+  startupProbe:
+    httpGet:
+      path: /eval/health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /eval/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /eval/health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+orchestrator:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: n8nio/n8n
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5678
+  runtimeSecret:
+    existingSecret: ""
+    create: false
+    keys:
+      basicAuthPassword: N8N_BASIC_AUTH_PASSWORD
+      dbPassword: DB_POSTGRESDB_PASSWORD
+    basicAuthPassword: ""
+    dbPassword: ""
+  resources: {}
+  podAnnotations: {}
+  timezone: "UTC"
+  basicAuth:
+    enabled: true
+    username: "admin"
+  path: "/orch"
+  database:
+    host: "postgres"
+    port: 5432
+    name: "n8n"
+    user: "postgres"
+  persistence:
+    existingClaim: ""
+    size: 5Gi
+    storageClassName: ""
+  extraEnv: {}
+  startupProbe:
+    tcpSocket:
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+transformer:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: syncratic/artifact-transformer
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8091
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  podAnnotations: {}
+  extraEnv:
+    TRANSFORMER_ENABLE_PPTX: "true"
+    TRANSFORMER_ENABLE_PDF: "true"
+    TRANSFORMER_ENABLE_XLSX: "true"
+    TRANSFORMER_ENABLE_DOCX: "true"
+    PDF_FALLBACK_ENABLE_PDFTOTEXT: "true"
+    PDF_FALLBACK_ENABLE_TESSERACT: "true"
+    PDF_FALLBACK_OCR_MAX_PAGES: "8"
+    PDF_OCR_MIN_CHARS_PER_PAGE: "40"
+    PDF_OCR_MIN_TEXT_COVERAGE: "0.70"
+    PDF_OCR_FORCE_ON_LOW_TEXT: "true"
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 15

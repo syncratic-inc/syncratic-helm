@@ -1,0 +1,74 @@
+{{- if and .Values.help.enabled .Values.help.curator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-help-curator
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: help-curator
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: help-curator
+      {{- with .Values.help.curator.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: help-curator
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.help.curator.image) }}"
+          imagePullPolicy: {{ .Values.help.curator.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8098
+          env:
+            - name: HELP_CURATOR_DOCS_ROOT
+              value: {{ .Values.help.curator.docs.mountPath | quote }}
+            - name: HELP_CURATOR_VISIBILITY_REGISTRY_PATH
+              value: {{ printf "%s/document_visibility_registry.yaml" .Values.help.curator.docs.mountPath | quote }}
+            - name: HELP_CURATOR_DB_PATH
+              value: /var/lib/help/help.db
+            - name: HELP_CURATOR_GATEWAY_BASE_URL
+              value: http://{{ include "syncratic-phase1.fullname" . }}-gateway:{{ .Values.gateway.service.port }}
+            - name: HELP_CURATOR_GATEWAY_TOKEN_FILE
+              value: {{ printf "/run/secrets/help-gateway/%s" .Values.help.gatewayTokenSecret.keys.curatorGatewayToken | quote }}
+            {{- include "syncratic-phase1.renderMapEnv" (dict "root" . "values" .Values.help.curator.extraEnv) | nindent 12 }}
+          volumeMounts:
+            - name: help-data
+              mountPath: /var/lib/help
+            - name: help-gateway-secret
+              mountPath: /run/secrets/help-gateway
+              readOnly: true
+            - name: docs
+              mountPath: {{ .Values.help.curator.docs.mountPath }}
+              readOnly: true
+          startupProbe:
+            {{- toYaml .Values.help.curator.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.help.curator.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.help.curator.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.help.curator.resources | nindent 12 }}
+      volumes:
+        - name: help-data
+          persistentVolumeClaim:
+            claimName: {{ default (include "syncratic-phase1.helpDataPvcName" .) .Values.help.persistence.existingClaim }}
+        - name: help-gateway-secret
+          secret:
+            secretName: {{ include "syncratic-phase1.helpGatewayTokenSecretName" . }}
+        - name: docs
+          persistentVolumeClaim:
+            claimName: {{ .Values.help.curator.docs.existingClaim }}
+{{- end }}

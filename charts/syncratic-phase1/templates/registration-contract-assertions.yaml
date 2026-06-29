@@ -1,0 +1,17 @@
+{{- if .Values.registration.enabled -}}
+  {{- if or (.Values.registration.bootstrapAuthority.existingSecret | trim) .Values.registration.bootstrapAuthority.create -}}
+    {{- if not (.Values.registration.bootstrapAuthority.activeKeyId | trim) -}}
+      {{- fail "registration.bootstrapAuthority.activeKeyId is required when registration.bootstrapAuthority.existingSecret is set or registration.bootstrapAuthority.create=true" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if eq (.Values.registration.les.steadyStateAuthMode | lower) "mtls" -}}
+    {{- if and (not (.Values.registration.les.mtls.caSecret.existingSecret | trim)) (not .Values.registration.les.mtls.caSecret.create) -}}
+      {{- fail "registration.les.steadyStateAuthMode=mtls requires registration.les.mtls.caSecret.existingSecret or registration.les.mtls.caSecret.create=true" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if eq (.Values.registration.les.licenseHandoffMode | lower) "embedded_signed_license" -}}
+    {{- if and (not (.Values.registration.les.initialLicenseSecret.existingSecret | trim)) (not .Values.registration.les.initialLicenseSecret.create) -}}
+      {{- fail "registration.les.licenseHandoffMode=embedded_signed_license requires registration.les.initialLicenseSecret.existingSecret or registration.les.initialLicenseSecret.create=true" -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

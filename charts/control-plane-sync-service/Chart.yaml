@@ -1,0 +1,6 @@
+apiVersion: v2
+name: control-plane-sync-service
+description: Standalone Helm chart for the Syncratic control-plane authority service.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

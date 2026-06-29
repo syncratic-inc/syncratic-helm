@@ -1,0 +1,17 @@
+# Example: deployment-owned network file-share mounts for NFS/SMB/CIFS connectors.
+# Syncratic does not mount network shares itself. The platform operator must provision
+# the backing PersistentVolume/PersistentVolumeClaim or node host mount first.
+
+gateway:
+  networkFileShares:
+    enabled: true
+    allowedRoots: "/mnt/syncratic-shares"
+    mounts:
+      - name: contracts-share
+        mountPath: /mnt/syncratic-shares/contracts
+        readOnly: true
+        existingClaim: contracts-share-pvc
+      - name: procurement-share
+        mountPath: /mnt/syncratic-shares/procurement
+        readOnly: true
+        existingClaim: procurement-share-pvc

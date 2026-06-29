@@ -1,0 +1,59 @@
+{{- if .Values.llmFast.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-llm-fast
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: llm-fast
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: llm-fast
+      {{- with .Values.llmFast.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: llm-fast
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.llmFast.image) }}"
+          imagePullPolicy: {{ .Values.llmFast.image.pullPolicy }}
+          args:
+            - {{ .Values.llmFast.model.name | quote }}
+            - --served-model-name
+            - {{ .Values.llmFast.model.servedModelName | quote }}
+            - --dtype
+            - {{ .Values.llmFast.model.dtype | quote }}
+            - --gpu-memory-utilization
+            - {{ .Values.llmFast.model.gpuMemoryUtilization | quote }}
+            - --max-model-len
+            - {{ .Values.llmFast.model.maxModelLen | quote }}
+            {{- range .Values.llmFast.args }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.llmFast.service.port }}
+          env:
+            - name: HF_HOME
+              value: {{ .Values.llmFast.env.hfHome | quote }}
+          startupProbe:
+            {{- toYaml .Values.llmFast.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.llmFast.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.llmFast.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.llmFast.resources | nindent 12 }}
+{{- end }}

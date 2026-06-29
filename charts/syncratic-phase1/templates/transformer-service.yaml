@@ -1,0 +1,17 @@
+{{- if .Values.transformer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-transformer
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.transformer.service.type }}
+  selector:
+    {{- include "syncratic-phase1.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: transformer
+  ports:
+    - name: http
+      port: {{ .Values.transformer.service.port }}
+      targetPort: http
+{{- end }}

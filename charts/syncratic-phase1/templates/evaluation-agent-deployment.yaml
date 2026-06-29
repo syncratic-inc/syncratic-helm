@@ -1,0 +1,123 @@
+{{- if .Values.evaluation.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-evaluation-agent
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.evaluation.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: evaluation-agent
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: evaluation-agent
+      {{- with .Values.evaluation.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: evaluation-agent
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.evaluation.image) }}"
+          imagePullPolicy: {{ .Values.evaluation.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.evaluation.service.port }}
+          env:
+            {{- if .Values.postgres.enabled }}
+            - name: EVAL_DB_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.postgresAuthSecretName" . }}
+                  key: {{ .Values.postgres.auth.keys.evaluationDsn }}
+            {{- else if .Values.externalServices.connectionSecret.existingSecret }}
+            - name: EVAL_DB_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.externalConnectionSecretName" . }}
+                  key: {{ .Values.externalServices.connectionSecret.keys.postgresUrl }}
+            {{- else if .Values.externalServices.postgresUrl }}
+            - name: EVAL_DB_DSN
+              value: {{ .Values.externalServices.postgresUrl | quote }}
+            {{- end }}
+            - name: LLMFS_BASE_URL
+              value: http://{{ include "syncratic-phase1.fullname" . }}-gateway:{{ .Values.gateway.service.port }}
+            - name: LLMFS_UPLOAD_ROOT
+              value: /syncrauploads
+            - name: EVAL_WORKSPACE_ROOT
+              value: /syncrauploads/eval_workspaces
+            - name: EVAL_MANAGED_SUITE_ROOT
+              value: /eval_suites
+            {{- if .Values.externalServices.trustBundle.existingConfigMap }}
+            - name: REQUESTS_CA_BUNDLE
+              value: {{ printf "%s/%s" .Values.externalServices.trustBundle.mountPath .Values.externalServices.trustBundle.key | quote }}
+            - name: SSL_CERT_FILE
+              value: {{ printf "%s/%s" .Values.externalServices.trustBundle.mountPath .Values.externalServices.trustBundle.key | quote }}
+            {{- end }}
+            - name: EVAL_INTERNAL_TRIGGER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.evaluationRuntimeSecretName" . }}
+                  key: {{ .Values.evaluation.runtimeSecret.keys.internalTriggerToken }}
+            - name: EVAL_SERVICE_GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.evaluationRuntimeSecretName" . }}
+                  key: {{ .Values.evaluation.runtimeSecret.keys.serviceGatewayApiKey }}
+            - name: EVAL_SERVICE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.evaluationRuntimeSecretName" . }}
+                  key: {{ .Values.evaluation.runtimeSecret.keys.serviceTenantId }}
+                  optional: true
+            {{- if .Values.externalServices.connectionSecret.existingSecret }}
+            - name: EVAL_LLM_JUDGE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.externalConnectionSecretName" . }}
+                  key: {{ .Values.externalServices.connectionSecret.keys.llmDeepUrl }}
+            {{- else }}
+            - name: EVAL_LLM_JUDGE_URL
+              value: {{ .Values.externalServices.llmDeepUrl | quote }}
+            {{- end }}
+            {{- include "syncratic-phase1.renderMapEnv" (dict "root" . "values" .Values.evaluation.extraEnv) | nindent 12 }}
+          volumeMounts:
+            - name: uploads
+              mountPath: /syncrauploads
+            - name: managed-suites
+              mountPath: /eval_suites
+            {{- if .Values.externalServices.trustBundle.existingConfigMap }}
+            - name: external-trust-bundle
+              mountPath: {{ .Values.externalServices.trustBundle.mountPath }}
+              readOnly: true
+            {{- end }}
+          startupProbe:
+            {{- toYaml .Values.evaluation.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.evaluation.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.evaluation.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.evaluation.resources | nindent 12 }}
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: {{ default (include "syncratic-phase1.gatewayUploadsPvcName" .) .Values.gateway.persistence.uploads.existingClaim }}
+        - name: managed-suites
+          persistentVolumeClaim:
+            claimName: {{ default (include "syncratic-phase1.evaluationManagedSuitesPvcName" .) .Values.evaluation.persistence.managedSuites.existingClaim }}
+        {{- if .Values.externalServices.trustBundle.existingConfigMap }}
+        - name: external-trust-bundle
+          configMap:
+            name: {{ include "syncratic-phase1.externalTrustBundleConfigMapName" . }}
+        {{- end }}
+{{- end }}

@@ -1,0 +1,39 @@
+# Example overlay for exposing retained production-readiness evidence in Admin -> Operations.
+# The chart does not create these artifacts. Operators must generate and retain them first.
+
+gateway:
+  notifications:
+    dispatcher:
+      enabled: true
+      batchSize: 20
+      intervalSeconds: 15
+      maxAttempts: 5
+      retryBaseSeconds: 60
+    webhook:
+      enabled: false
+      # url: https://hooks.example.com/syncratic-alerts
+      # tokenSecret:
+      #   existingSecret: syncratic-notification-webhook
+      #   key: NOTIFICATION_WEBHOOK_TOKEN
+  operationsReadiness:
+    enabled: true
+    evidenceVolume:
+      enabled: true
+      existingClaim: syncratic-operations-evidence
+      mountPath: /srv/syncratic
+      readOnly: true
+    paths:
+      lesRetentionSummary: /srv/syncratic/phase2/les/output/evidence/les-runtime-output-retention-summary.json
+      lesPolicySummary: /srv/syncratic/phase2/les/output/policy-summary.json
+      lesDueEvaluation: /srv/syncratic/phase2/les/output/due-evaluation.json
+      lesOperationalEvidence: /srv/syncratic/phase2/les/output/evidence/summary.json
+      backupManifest: /srv/syncratic/phase2/operations/backup-manifest.json
+      restoreDrillSummary: /srv/syncratic/phase2/operations/restore-drill-summary.json
+      recoveryPackageManifest: /srv/syncratic/phase2/operations/recovery-package/manifest.json
+      alertingManifest: /srv/syncratic/phase2/operations/alerting-manifest.json
+      accessReplaySummary: /srv/syncratic/phase2/operations/access-replay-summary.json
+      connectorProofSummary: /srv/syncratic/phase2/operations/connector-proof-summary.json
+      secretGovernanceManifest: /srv/syncratic/phase2/operations/secret-governance-manifest.json
+      edgeIngressProofSummary: /srv/syncratic/phase2/operations/edge-ingress-proof-summary.json
+      privacyEngineRuntimeConfigProof: /srv/syncratic/phase2/operations/privacy-engine-runtime-config-proof.json
+      productionEvidencePackageManifest: /srv/syncratic/phase2/operations/production-evidence-package/manifest.json

@@ -1,0 +1,134 @@
+{{- if and (eq .Values.materialPolicy.sourceMode "flexible") (ne .Values.materialPolicy.manager "bootstrap") -}}
+  {{- fail "materialPolicy.sourceMode=flexible requires materialPolicy.manager=bootstrap" -}}
+{{- end -}}
+
+{{- if and (eq .Values.materialPolicy.sourceMode "cluster_managed") (eq .Values.materialPolicy.manager "bootstrap") -}}
+  {{- fail "materialPolicy.sourceMode=cluster_managed requires materialPolicy.manager!=bootstrap" -}}
+{{- end -}}
+
+{{- if and (eq .Values.materialPolicy.manager "external_secrets") (not .Values.materialPolicy.externalSecrets.enabled) -}}
+  {{- fail "materialPolicy.manager=external_secrets requires materialPolicy.externalSecrets.enabled=true" -}}
+{{- end -}}
+
+{{- if .Values.materialPolicy.externalSecrets.enabled -}}
+  {{- if ne .Values.materialPolicy.manager "external_secrets" -}}
+    {{- fail "materialPolicy.externalSecrets.enabled=true requires materialPolicy.manager=external_secrets" -}}
+  {{- end -}}
+  {{- if not (.Values.materialPolicy.externalSecrets.secretStoreRef.name | trim) -}}
+    {{- fail "materialPolicy.externalSecrets.enabled=true requires materialPolicy.externalSecrets.secretStoreRef.name" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.auth.identityProvisioning.enabled -}}
+  {{- if ne (.Values.auth.identityProvisioning.provider | lower) "keycloak" -}}
+    {{- fail "auth.identityProvisioning.enabled=true currently requires auth.identityProvisioning.provider=keycloak" -}}
+  {{- end -}}
+  {{- if not (.Values.auth.identityProvisioning.adminClientId | trim) -}}
+    {{- fail "auth.identityProvisioning.enabled=true requires auth.identityProvisioning.adminClientId" -}}
+  {{- end -}}
+  {{- if not (default .Values.externalServices.keycloakRealm .Values.auth.identityProvisioning.adminRealm | trim) -}}
+    {{- fail "auth.identityProvisioning.enabled=true requires auth.identityProvisioning.adminRealm or externalServices.keycloakRealm" -}}
+  {{- end -}}
+  {{- if and (not .Values.auth.identityProvisioning.secret.create) (not (.Values.auth.identityProvisioning.secret.existingSecret | trim)) -}}
+    {{- fail "auth.identityProvisioning.enabled=true requires auth.identityProvisioning.secret.existingSecret or auth.identityProvisioning.secret.create=true" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if eq .Values.materialPolicy.sourceMode "cluster_managed" -}}
+  {{- if .Values.security.bootstrapSecret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires security.bootstrapSecret.create=false" -}}
+  {{- end -}}
+  {{- if not (.Values.security.existingSecret | trim) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires security.existingSecret" -}}
+  {{- end -}}
+  {{- if .Values.auth.runtimeSecret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires auth.runtimeSecret.create=false" -}}
+  {{- end -}}
+  {{- if and .Values.auth.identityProvisioning.enabled .Values.auth.identityProvisioning.secret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires auth.identityProvisioning.secret.create=false when auth.identityProvisioning.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.auth.identityProvisioning.enabled (not (.Values.auth.identityProvisioning.secret.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires auth.identityProvisioning.secret.existingSecret when auth.identityProvisioning.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.help.enabled .Values.help.gatewayTokenSecret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires help.gatewayTokenSecret.create=false" -}}
+  {{- end -}}
+  {{- if .Values.licensing.publicKeys.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires licensing.publicKeys.create=false" -}}
+  {{- end -}}
+  {{- if and (not (.Values.licensing.publicKeys.existingConfigMap | trim)) (not (.Values.licensing.publicKeys.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires licensing.publicKeys.existingConfigMap or licensing.publicKeys.existingSecret" -}}
+  {{- end -}}
+  {{- if and .Values.registration.enabled .Values.registration.publicKeys.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires registration.publicKeys.create=false when registration.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.registration.enabled (not (.Values.registration.publicKeys.existingConfigMap | trim)) (not (.Values.registration.publicKeys.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires registration.publicKeys.existingConfigMap or registration.publicKeys.existingSecret when registration.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.registration.enabled .Values.registration.adminTokenSecret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires registration.adminTokenSecret.create=false when registration.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.help.enabled (not (.Values.help.gatewayTokenSecret.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires help.gatewayTokenSecret.existingSecret when help.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.evaluation.enabled .Values.evaluation.runtimeSecret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires evaluation.runtimeSecret.create=false when evaluation.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.evaluation.enabled (not (.Values.evaluation.runtimeSecret.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires evaluation.runtimeSecret.existingSecret when evaluation.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.orchestrator.enabled .Values.orchestrator.runtimeSecret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires orchestrator.runtimeSecret.create=false when orchestrator.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.orchestrator.enabled (not (.Values.orchestrator.runtimeSecret.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires orchestrator.runtimeSecret.existingSecret when orchestrator.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.keycloak.enabled .Values.keycloak.adminSecret.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires keycloak.adminSecret.create=false when keycloak.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.keycloak.enabled (not (.Values.keycloak.adminSecret.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires keycloak.adminSecret.existingSecret when keycloak.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.keycloak.enabled .Values.keycloak.database.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires keycloak.database.create=false when keycloak.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.keycloak.enabled (not (.Values.keycloak.database.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires keycloak.database.existingSecret when keycloak.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.keycloak.enabled .Values.keycloak.realm.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires keycloak.realm.create=false when keycloak.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.keycloak.enabled (not (.Values.keycloak.realm.existingConfigMap | trim)) (not (.Values.keycloak.realm.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires keycloak.realm.existingConfigMap or keycloak.realm.existingSecret when keycloak.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.postgres.enabled .Values.postgres.auth.create -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires postgres.auth.create=false when postgres.enabled=true" -}}
+  {{- end -}}
+  {{- if and .Values.postgres.enabled (not (.Values.postgres.auth.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.sourceMode=cluster_managed requires postgres.auth.existingSecret when postgres.enabled=true" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.materialPolicy.requireExternalConnectionSecret -}}
+  {{- if not (.Values.externalServices.connectionSecret.existingSecret | trim) -}}
+    {{- fail "materialPolicy.requireExternalConnectionSecret=true requires externalServices.connectionSecret.existingSecret" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.materialPolicy.requireExternalTrustBundle -}}
+  {{- if and (not (.Values.externalServices.trustBundle.existingConfigMap | trim)) (not (.Values.externalServices.trustBundle.existingSecret | trim)) -}}
+    {{- fail "materialPolicy.requireExternalTrustBundle=true requires externalServices.trustBundle.existingConfigMap or externalServices.trustBundle.existingSecret" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.materialPolicy.requireConnectedControlPlaneMtls -}}
+  {{- if ne .Values.licensing.controlPlane.mode "connected" -}}
+    {{- fail "materialPolicy.requireConnectedControlPlaneMtls=true requires licensing.controlPlane.mode=connected" -}}
+  {{- end -}}
+  {{- if and (not (.Values.licensing.controlPlane.tls.caConfigMap | trim)) (not (.Values.licensing.controlPlane.tls.caSecret | trim)) -}}
+    {{- fail "materialPolicy.requireConnectedControlPlaneMtls=true requires licensing.controlPlane.tls.caConfigMap or licensing.controlPlane.tls.caSecret" -}}
+  {{- end -}}
+  {{- if not (.Values.licensing.controlPlane.tls.clientSecret | trim) -}}
+    {{- fail "materialPolicy.requireConnectedControlPlaneMtls=true requires licensing.controlPlane.tls.clientSecret" -}}
+  {{- end -}}
+{{- end -}}

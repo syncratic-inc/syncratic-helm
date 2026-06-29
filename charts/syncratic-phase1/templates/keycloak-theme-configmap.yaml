@@ -1,0 +1,42 @@
+{{- if and .Values.keycloak.enabled .Values.keycloak.theme.enabled .Values.keycloak.theme.configMap.create (not .Values.keycloak.theme.configMap.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "syncratic-phase1.keycloakThemeConfigMapName" . }}
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak-theme
+data:
+  login-login.ftl: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/login.ftl" | nindent 4 }}
+  login-login-update-password.ftl: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/login-update-password.ftl" | nindent 4 }}
+  login-error.ftl: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/error.ftl" | nindent 4 }}
+  login-info.ftl: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/info.ftl" | nindent 4 }}
+  login-theme.properties: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/theme.properties" | nindent 4 }}
+  login-messages-en.properties: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/messages/messages_en.properties" | nindent 4 }}
+  login-css-syncratic.css: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/resources/css/syncratic.css" | nindent 4 }}
+  login-js-passwordVisibility.js: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/resources/js/passwordVisibility.js" | nindent 4 }}
+  login-js-authChecker.js: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/resources/js/authChecker.js" | nindent 4 }}
+  login-js-userProfile.js: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/resources/js/userProfile.js" | nindent 4 }}
+  login-img-logo.svg: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/login/resources/img/logo.svg" | nindent 4 }}
+  email-text-executeActions.ftl: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/email/text/executeActions.ftl" | nindent 4 }}
+  email-html-template.ftl: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/email/html/template.ftl" | nindent 4 }}
+  email-html-executeActions.ftl: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/email/html/executeActions.ftl" | nindent 4 }}
+  email-theme.properties: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/email/theme.properties" | nindent 4 }}
+  email-messages-en.properties: |-
+{{ .Files.Get "files/keycloak/themes/syncratic/email/messages/messages_en.properties" | nindent 4 }}
+{{- end }}

@@ -1,0 +1,59 @@
+{{- if .Values.qdrant.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-qdrant
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "syncratic-phase1.fullname" . }}-qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: qdrant
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: qdrant
+      {{- with .Values.qdrant.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: qdrant
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.qdrant.image) }}"
+          imagePullPolicy: {{ .Values.qdrant.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.qdrant.service.port }}
+          volumeMounts:
+            - name: data
+              mountPath: /qdrant/storage
+          startupProbe:
+            {{- toYaml .Values.qdrant.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.qdrant.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.qdrant.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.qdrant.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.qdrant.persistence.size }}
+        {{- if .Values.qdrant.persistence.storageClassName }}
+        storageClassName: {{ .Values.qdrant.persistence.storageClassName }}
+        {{- end }}
+{{- end }}

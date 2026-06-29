@@ -1,0 +1,17 @@
+{{- if and .Values.registration.enabled (not .Values.registration.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "syncratic-phase1.registrationDataPvcName" . }}
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.registration.persistence.size }}
+  {{- if .Values.registration.persistence.storageClassName }}
+  storageClassName: {{ .Values.registration.persistence.storageClassName }}
+  {{- end }}
+{{- end }}

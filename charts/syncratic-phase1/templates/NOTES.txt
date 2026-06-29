@@ -1,0 +1,171 @@
+Syncratic Phase 1 chart installed.
+
+Boundary:
+- This chart packages the phase-1 runtime slice.
+- It does not replace LES-backed artifact verification or signed update-bundle controls.
+
+Primary services:
+- Gateway: {{ include "syncratic-phase1.fullname" . }}-gateway
+- Frontend: {{ include "syncratic-phase1.fullname" . }}-frontend
+- Help: {{ include "syncratic-phase1.fullname" . }}-help
+{{- if .Values.redis.enabled }}
+- Redis: {{ include "syncratic-phase1.fullname" . }}-redis
+{{- end }}
+{{- if .Values.qdrant.enabled }}
+- Qdrant: {{ include "syncratic-phase1.fullname" . }}-qdrant
+{{- end }}
+{{- if .Values.neo4j.enabled }}
+- Neo4j: {{ include "syncratic-phase1.fullname" . }}-neo4j
+{{- end }}
+{{- if .Values.postgres.enabled }}
+- PostgreSQL: {{ include "syncratic-phase1.fullname" . }}-postgres
+{{- end }}
+{{- if .Values.keycloak.enabled }}
+- Keycloak: {{ include "syncratic-phase1.fullname" . }}-keycloak
+- Keycloak DB: {{ include "syncratic-phase1.fullname" . }}-keycloak-db
+{{- end }}
+{{- if .Values.bgeEmbeddings.enabled }}
+- BGE Embeddings: {{ include "syncratic-phase1.fullname" . }}-bge-embeddings
+{{- end }}
+{{- if .Values.llmFast.enabled }}
+- LLM Fast: {{ include "syncratic-phase1.fullname" . }}-llm-fast
+{{- end }}
+{{- if .Values.llmDeep.enabled }}
+- LLM Deep: {{ include "syncratic-phase1.fullname" . }}-llm-deep
+{{- end }}
+{{- if .Values.evaluation.enabled }}
+- Evaluation Agent: {{ include "syncratic-phase1.fullname" . }}-evaluation-agent
+{{- end }}
+{{- if .Values.orchestrator.enabled }}
+- Orchestrator: {{ include "syncratic-phase1.fullname" . }}-orchestrator
+{{- end }}
+- Licensing: {{ include "syncratic-phase1.fullname" . }}-licensing
+{{- if .Values.transformer.enabled }}
+- Transformer: {{ include "syncratic-phase1.fullname" . }}-transformer
+{{- end }}
+{{- if .Values.help.curator.enabled }}
+- Help Curator: {{ include "syncratic-phase1.fullname" . }}-help-curator
+{{- end }}
+
+Operator checks:
+1. Verify the LES public key material is populated through either:
+   - `licensing.publicKeys.existingConfigMap`
+   - `licensing.publicKeys.existingSecret`
+   - or `licensing.publicKeys.create=true`
+2. Verify the bootstrap secret or existing secret contains the required platform keys.
+3. Verify the auth runtime secret is configured through either:
+   - `auth.runtimeSecret.existingSecret`
+   - `auth.runtimeSecret.create=true`
+   - or bootstrap-secret fallback if you deliberately keep auth material coupled
+4. Verify the Help gateway token secret is configured through either:
+   - `help.gatewayTokenSecret.existingSecret`
+   - or `help.gatewayTokenSecret.create=true`
+   - and if `help.curator.enabled=true`, ensure the same secret also carries the curator token key
+5. If `help.curator.enabled=true`, provide:
+   - `help.curator.docs.existingClaim`
+   - with a mounted docs corpus that contains `document_visibility_registry.yaml`
+6. Verify gateway external dependency material is populated through either:
+   - real `externalServices.*` values
+   - or `externalServices.connectionSecret.existingSecret`
+7. If `licensing.controlPlane.mode=connected`, provide:
+   - `licensing.controlPlane.url`
+   - `licensing.controlPlane.tokenSecret.existingSecret`
+   - optional TLS CA/client material through `licensing.controlPlane.tls.*`
+8. If external endpoints use a private or enterprise CA, provide either:
+   - `externalServices.trustBundle.existingConfigMap`
+   - `externalServices.trustBundle.existingSecret`
+9. If `evaluation.enabled=true`, configure evaluation runtime material through either:
+   - `evaluation.runtimeSecret.existingSecret`
+   - or `evaluation.runtimeSecret.create=true`
+   - and provide a managed suites PVC through either the chart-managed claim or `evaluation.persistence.managedSuites.existingClaim`
+10. If `orchestrator.enabled=true`, configure orchestrator runtime material through either:
+   - `orchestrator.runtimeSecret.existingSecret`
+   - or `orchestrator.runtimeSecret.create=true`
+   - and provide an orchestrator data PVC through either the chart-managed claim or `orchestrator.persistence.existingClaim`
+11. If `redis.enabled=true`, keep `externalServices.redisUrl` unset unless you deliberately want to override the chart-owned Redis boundary.
+12. If `qdrant.enabled=true`, keep `externalServices.qdrantUrl` unset unless you deliberately want to override the chart-owned Qdrant boundary.
+13. If `neo4j.enabled=true`, keep `externalServices.neo4jUri` unset unless you deliberately want to override the chart-owned Neo4j boundary.
+14. If `postgres.enabled=true`, keep `externalServices.postgresUrl` unset unless you deliberately want to override the chart-owned PostgreSQL boundary.
+15. If `postgres.enabled=true`, the chart-owned database contract is:
+   - application/evaluation database: `syncratic_rag`
+   - orchestrator database: `n8n`
+   - and the PostgreSQL auth secret must provide:
+     - `POSTGRES_PASSWORD`
+     - `DATABASE_URL`
+     - `EVAL_DB_DSN`
+     - `GATEWAY_MIGRATION_DSN`
+     - `DB_POSTGRESDB_PASSWORD`
+16. If `keycloak.enabled=true`, provide:
+   - `keycloak.adminSecret.existingSecret`
+   - or `keycloak.adminSecret.create=true`
+   - `keycloak.database.existingSecret`
+   - or `keycloak.database.create=true`
+   - `keycloak.realm.existingConfigMap`
+   - or `keycloak.realm.existingSecret`
+   - or `keycloak.realm.create=true`
+   - and if `ingress.enabled=true`, set `ingress.authHost`
+17. If `keycloak.enabled=true`, keep `externalServices.keycloakInternalUrl` unset unless you deliberately want to override the chart-owned Keycloak boundary.
+18. If `bgeEmbeddings.enabled=true`, keep `externalServices.bgeEmbeddingsUrl` unset unless you deliberately want to override the chart-owned embeddings boundary.
+19. If `llmFast.enabled=true`, keep `externalServices.llmFastUrl` unset unless you deliberately want to override the chart-owned fast LLM boundary.
+20. If `llmDeep.enabled=true`, keep `externalServices.llmDeepUrl` unset unless you deliberately want to override the chart-owned deep LLM boundary.
+21. Keep LES singleton while it remains SQLite-backed.
+22. Run `helm template` or `helm install --dry-run` first so values-schema and chart assertions catch broken host, dependency material, migration DSN, secret, ConfigMap, PVC, and non-permissive egress shapes early.
+23. If `materialPolicy.sourceMode=cluster_managed`, verify the chart is sourcing:
+   - bootstrap material from `security.existingSecret`
+   - auth material from either `auth.runtimeSecret.existingSecret` or the external bootstrap secret
+   - Help gateway-token material from `help.gatewayTokenSecret.existingSecret`
+   - evaluation runtime material from `evaluation.runtimeSecret.existingSecret` when `evaluation.enabled=true`
+   - orchestrator runtime material from `orchestrator.runtimeSecret.existingSecret` when `orchestrator.enabled=true`
+   - PostgreSQL auth material from `postgres.auth.existingSecret` when `postgres.enabled=true`
+   - Keycloak admin and DB material from:
+     - `keycloak.adminSecret.existingSecret`
+     - `keycloak.database.existingSecret`
+   - Keycloak realm material from one of:
+     - `keycloak.realm.existingConfigMap`
+     - `keycloak.realm.existingSecret`
+     when `keycloak.enabled=true`
+   - LES public keys from one of:
+     - `licensing.publicKeys.existingConfigMap`
+     - `licensing.publicKeys.existingSecret`
+   - and any stricter external secret/trust/mTLS policy flags from `materialPolicy.*`
+24. If `materialPolicy.sourceMode=cluster_managed`, set:
+   - `materialPolicy.manager=manual_refs`
+   - or `materialPolicy.manager=external_secrets`
+   - `materialPolicy.manager=bootstrap` is only valid with `materialPolicy.sourceMode=flexible`
+25. If `materialPolicy.publishContract=true`, review:
+   - `{{ include "syncratic-phase1.materialContractConfigMapName" . }}`
+   - as the authoritative list of Secret and ConfigMap names, required keys, and chart-vs-cluster ownership under the current values
+26. If `auth.saml.enabled=true`, keep first-run admin bootstrap local, then configure SAML from Admin -> Identity after claim. This flag requires `auth.identityProvisioning.enabled=true` because provider validation and group browsing use Keycloak admin credentials.
+27. If `materialPolicy.manager=external_secrets`, provide:
+   - `materialPolicy.externalSecrets.enabled=true`
+   - `materialPolicy.externalSecrets.secretStoreRef.kind`
+   - `materialPolicy.externalSecrets.secretStoreRef.name`
+   - and review the emitted `ExternalSecret` targets for Secret-backed material only
+   - ConfigMap-backed material remains the default contract, but Secret-backed alternatives are now supported for LES/registration public keys, Keycloak realm import, external trust bundle, and control-plane CA material
+28. Run `helm test <release>` to validate:
+   - LES release gates
+   - backplane dependency reachability from inside the cluster
+   - packaged runtime smoke readiness for gateway, frontend, help, optional evaluation-agent, optional Keycloak discovery surface, optional embeddings endpoint, optional fast LLM endpoint, optional deep LLM endpoint, optional orchestrator TCP reachability, licensing, optional transformer, and optional help-curator
+   - mounted bootstrap secret, auth runtime secret, Help gateway-token secret, optional evaluation runtime secret, optional orchestrator runtime secret, optional PostgreSQL auth secret, optional Keycloak admin/DB secrets and realm material, LES public-key contract, connected control-plane material when enabled, and optional external trust bundle
+   {{- if .Values.ingress.enabled }}
+   - public ingress host, auth topology, and runtime URL contract
+   {{- end }}
+   - then run the phase-1 delivery workflow or `scripts/run_syncratic_phase1_recovery_evidence_flow.sh` if you need retained recovery evidence tied to backup artifacts
+29. If operational alert delivery is required, set:
+   - `gateway.notifications.dispatcher.enabled=true`
+   - optional `gateway.notifications.webhook.*` values with the token sourced from a Secret
+   - then seed/evaluate/test alert rules from `Admin -> Notifications -> Operational alerts`
+30. If `networkPolicy.allowAllEgress=false`, verify remaining external dependency egress is modeled through CIDRs or explicit extra egress rules.
+31. If `ingress.enabled=true`, verify runtime public URLs are not still set to `localhost` placeholders.
+32. If `ingress.tlsPolicy.mode=cluster_managed`, verify:
+   - `ingress.className` is set
+   - `ingress.publicScheme=https`
+   - every configured public host appears in `ingress.tls[*].hosts`
+   - `networkPolicy.ingressController.enabled=true`
+33. If `ingress.tlsPolicy.certManager.enabled=true`, provide exactly one of:
+   - `ingress.tlsPolicy.certManager.clusterIssuer`
+   - `ingress.tlsPolicy.certManager.issuer`
+34. If `ingress.enabled=true` and `networkPolicy.enabled=true`, verify external ingress is allowed through either:
+   - `networkPolicy.ingressController.*`
+   - or the legacy `networkPolicy.allowIngressNamespaceLabels` fallback
+   - otherwise frontend, gateway, help, optional evaluation-agent/orchestrator ingress, and optional Keycloak ingress will remain denied by policy

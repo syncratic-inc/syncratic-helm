@@ -1,0 +1,65 @@
+{{- if .Values.redis.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-redis
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "syncratic-phase1.fullname" . }}-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+      {{- with .Values.redis.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: redis
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.redis.image) }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command:
+            - redis-server
+          args:
+            {{- range .Values.redis.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.service.port }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          startupProbe:
+            {{- toYaml .Values.redis.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.redis.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.redis.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size }}
+        {{- if .Values.redis.persistence.storageClassName }}
+        storageClassName: {{ .Values.redis.persistence.storageClassName }}
+        {{- end }}
+{{- end }}

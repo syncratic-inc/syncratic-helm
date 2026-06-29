@@ -1,0 +1,124 @@
+{{- if .Values.observability.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic-phase1.observabilityGrafanaName" . }}
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.observability.grafana.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: observability-grafana
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: observability-grafana
+      annotations:
+        checksum/provisioning: {{ include (print $.Template.BasePath "/observability-grafana-provisioning-configmap.yaml") . | sha256sum }}
+      {{- with .Values.observability.grafana.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: grafana
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.observability.grafana.image) }}"
+          imagePullPolicy: {{ .Values.observability.grafana.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.observability.grafana.service.port }}
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.observabilityGrafanaAdminSecretName" . }}
+                  key: {{ .Values.observability.grafana.adminSecret.keys.username }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.observabilityGrafanaAdminSecretName" . }}
+                  key: {{ .Values.observability.grafana.adminSecret.keys.password }}
+            - name: GF_SERVER_DOMAIN
+              value: {{ default "localhost" .Values.ingress.frontendHost | quote }}
+            - name: GF_SERVER_ROOT_URL
+              value: {{ include "syncratic-phase1.observabilityUrl" . | quote }}
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
+            - name: GF_AUTH_GENERIC_OAUTH_ENABLED
+              value: "true"
+            - name: GF_AUTH_GENERIC_OAUTH_NAME
+              value: "Syncratic SSO"
+            - name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+              value: {{ .Values.observability.grafana.oauth.clientId | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_USE_PKCE
+              value: "true"
+            - name: GF_AUTH_GENERIC_OAUTH_SCOPES
+              value: {{ .Values.observability.grafana.oauth.scopes | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
+              value: {{ printf "%s/protocol/openid-connect/auth" (include "syncratic-phase1.publicKeycloakIssuerUrl" .) | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
+              value: {{ printf "%s/protocol/openid-connect/token" (include "syncratic-phase1.internalKeycloakIssuerUrl" .) | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_API_URL
+              value: {{ printf "%s/protocol/openid-connect/userinfo" (include "syncratic-phase1.internalKeycloakIssuerUrl" .) | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP
+              value: {{ ternary "true" "false" .Values.observability.grafana.oauth.allowSignUp | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN
+              value: {{ ternary "true" "false" .Values.observability.grafana.oauth.autoLogin | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH
+              value: {{ .Values.observability.grafana.oauth.roleAttributePath | quote }}
+            - name: GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT
+              value: "true"
+          startupProbe:
+            {{- toYaml .Values.observability.grafana.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.observability.grafana.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.observability.grafana.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.observability.grafana.resources | nindent 12 }}
+          volumeMounts:
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yml
+              subPath: datasources.yml
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yml
+              subPath: dashboards.yml
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+            - name: storage
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: provisioning
+          configMap:
+            name: {{ include "syncratic-phase1.observabilityGrafanaProvisioningConfigMapName" . }}
+        - name: dashboards
+          {{- if or .Values.observability.grafana.dashboards.bundledEnabled .Values.observability.grafana.dashboards.configMaps }}
+          projected:
+            sources:
+              {{- if .Values.observability.grafana.dashboards.bundledEnabled }}
+              - configMap:
+                  name: {{ include "syncratic-phase1.observabilityGrafanaOverviewDashboardConfigMapName" . }}
+              - configMap:
+                  name: {{ include "syncratic-phase1.observabilityGrafanaIngestionExplorerDashboardConfigMapName" . }}
+              {{- end }}
+              {{- range .Values.observability.grafana.dashboards.configMaps }}
+              - configMap:
+                  name: {{ . | quote }}
+              {{- end }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: storage
+          {{- if .Values.observability.grafana.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ default (include "syncratic-phase1.observabilityGrafanaPvcName" .) .Values.observability.grafana.persistence.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

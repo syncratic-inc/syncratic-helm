@@ -1,0 +1,58 @@
+{{- if .Values.bgeEmbeddings.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-bge-embeddings
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: bge-embeddings
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: bge-embeddings
+      {{- with .Values.bgeEmbeddings.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: bge-embeddings
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.bgeEmbeddings.image) }}"
+          imagePullPolicy: {{ .Values.bgeEmbeddings.image.pullPolicy }}
+          args:
+            - --model
+            - {{ .Values.bgeEmbeddings.model.name | quote }}
+            - --served-model-name
+            - {{ .Values.bgeEmbeddings.model.servedModelName | quote }}
+            - --gpu-memory-utilization
+            - {{ .Values.bgeEmbeddings.model.gpuMemoryUtilization | quote }}
+            - --max-model-len
+            - {{ .Values.bgeEmbeddings.model.maxModelLen | quote }}
+            {{- range .Values.bgeEmbeddings.args }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.bgeEmbeddings.service.port }}
+          env:
+            - name: HF_HOME
+              value: {{ .Values.bgeEmbeddings.env.hfHome | quote }}
+          startupProbe:
+            {{- toYaml .Values.bgeEmbeddings.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.bgeEmbeddings.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.bgeEmbeddings.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.bgeEmbeddings.resources | nindent 12 }}
+{{- end }}

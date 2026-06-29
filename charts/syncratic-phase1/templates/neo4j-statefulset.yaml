@@ -1,0 +1,94 @@
+{{- if .Values.neo4j.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-neo4j
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "syncratic-phase1.fullname" . }}-neo4j
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic-phase1.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: neo4j
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: neo4j
+      {{- with .Values.neo4j.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: neo4j
+          image: "{{ include "syncratic-phase1.imageRef" (dict "Values" .Values "image" .Values.neo4j.image) }}"
+          imagePullPolicy: {{ .Values.neo4j.image.pullPolicy }}
+          env:
+            - name: SYNCRATIC_NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic-phase1.bootstrapSecretName" . }}
+                  key: NEO4J_PASSWORD
+            - name: NEO4J_AUTH
+              value: neo4j/$(SYNCRATIC_NEO4J_PASSWORD)
+            - name: NEO4J_server_default__listen__address
+              value: 0.0.0.0
+            - name: NEO4J_server_bolt_advertised__address
+              value: {{ printf "%s-neo4j:%v" (include "syncratic-phase1.fullname" .) .Values.neo4j.service.boltPort | quote }}
+            - name: NEO4J_server_http_advertised__address
+              value: {{ printf "%s-neo4j:%v" (include "syncratic-phase1.fullname" .) .Values.neo4j.service.httpPort | quote }}
+            - name: NEO4J_dbms_memory_heap_initial__size
+              value: {{ .Values.neo4j.config.heapInitialSize | quote }}
+            - name: NEO4J_dbms_memory_heap_max__size
+              value: {{ .Values.neo4j.config.heapMaxSize | quote }}
+            - name: NEO4J_server_memory_pagecache_size
+              value: {{ .Values.neo4j.config.pageCacheSize | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.neo4j.service.httpPort }}
+            - name: bolt
+              containerPort: {{ .Values.neo4j.service.boltPort }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: logs
+              mountPath: /logs
+          startupProbe:
+            {{- toYaml .Values.neo4j.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.neo4j.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.neo4j.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.neo4j.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.neo4j.persistence.dataSize }}
+        {{- if .Values.neo4j.persistence.storageClassName }}
+        storageClassName: {{ .Values.neo4j.persistence.storageClassName }}
+        {{- end }}
+    - metadata:
+        name: logs
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.neo4j.persistence.logsSize }}
+        {{- if .Values.neo4j.persistence.storageClassName }}
+        storageClassName: {{ .Values.neo4j.persistence.storageClassName }}
+        {{- end }}
+{{- end }}

@@ -1,0 +1,73 @@
+{{- $clusterManagedIngress := eq .Values.ingress.tlsPolicy.mode "cluster_managed" -}}
+{{- $requireTls := or $clusterManagedIngress .Values.ingress.tlsPolicy.requireTls -}}
+{{- $requireIngressClass := or $clusterManagedIngress .Values.ingress.tlsPolicy.requireIngressClass -}}
+{{- $requireHostsCovered := or $clusterManagedIngress .Values.ingress.tlsPolicy.requireHostsCovered -}}
+{{- $certManagerEnabled := .Values.ingress.tlsPolicy.certManager.enabled -}}
+
+{{- if $clusterManagedIngress -}}
+  {{- if not .Values.ingress.enabled -}}
+    {{- fail "ingress.tlsPolicy.mode=cluster_managed requires ingress.enabled=true" -}}
+  {{- end -}}
+  {{- if ne .Values.ingress.publicScheme "https" -}}
+    {{- fail "ingress.tlsPolicy.mode=cluster_managed requires ingress.publicScheme=https" -}}
+  {{- end -}}
+  {{- if not .Values.networkPolicy.ingressController.enabled -}}
+    {{- fail "ingress.tlsPolicy.mode=cluster_managed requires networkPolicy.ingressController.enabled=true" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $requireIngressClass -}}
+  {{- if not .Values.ingress.enabled -}}
+    {{- fail "ingress.tlsPolicy.requireIngressClass=true requires ingress.enabled=true" -}}
+  {{- end -}}
+  {{- if not (.Values.ingress.className | trim) -}}
+    {{- fail "ingress ingressClassName is required by ingress.tlsPolicy" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $requireTls -}}
+  {{- if not .Values.ingress.enabled -}}
+    {{- fail "ingress.tlsPolicy.requireTls=true requires ingress.enabled=true" -}}
+  {{- end -}}
+  {{- if ne .Values.ingress.publicScheme "https" -}}
+    {{- fail "ingress.tlsPolicy.requireTls=true requires ingress.publicScheme=https" -}}
+  {{- end -}}
+  {{- if not .Values.ingress.tls -}}
+    {{- fail "ingress.tlsPolicy requires ingress.tls entries" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $certManagerEnabled -}}
+  {{- if not .Values.ingress.enabled -}}
+    {{- fail "ingress.tlsPolicy.certManager.enabled=true requires ingress.enabled=true" -}}
+  {{- end -}}
+  {{- if ne .Values.ingress.publicScheme "https" -}}
+    {{- fail "ingress.tlsPolicy.certManager.enabled=true requires ingress.publicScheme=https" -}}
+  {{- end -}}
+  {{- $clusterIssuer := .Values.ingress.tlsPolicy.certManager.clusterIssuer | trim -}}
+  {{- $issuer := .Values.ingress.tlsPolicy.certManager.issuer | trim -}}
+  {{- if and (not $clusterIssuer) (not $issuer) -}}
+    {{- fail "ingress.tlsPolicy.certManager.enabled=true requires ingress.tlsPolicy.certManager.clusterIssuer or issuer" -}}
+  {{- end -}}
+  {{- if and $clusterIssuer $issuer -}}
+    {{- fail "ingress.tlsPolicy.certManager.enabled=true allows only one of ingress.tlsPolicy.certManager.clusterIssuer or issuer" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if and $requireHostsCovered .Values.ingress.enabled -}}
+  {{- $tlsHosts := dict -}}
+  {{- range .Values.ingress.tls }}
+    {{- range .hosts }}
+      {{- $_ := set $tlsHosts . true -}}
+    {{- end }}
+  {{- end }}
+  {{- if and (.Values.ingress.frontendHost | trim) (not (hasKey $tlsHosts .Values.ingress.frontendHost)) -}}
+    {{- fail "ingress.tlsPolicy requires ingress.frontendHost to appear in ingress.tls hosts" -}}
+  {{- end -}}
+  {{- if and (.Values.ingress.gatewayHost | trim) (not (hasKey $tlsHosts .Values.ingress.gatewayHost)) -}}
+    {{- fail "ingress.tlsPolicy requires ingress.gatewayHost to appear in ingress.tls hosts" -}}
+  {{- end -}}
+  {{- if and (.Values.ingress.authHost | trim) (not (hasKey $tlsHosts .Values.ingress.authHost)) -}}
+    {{- fail "ingress.tlsPolicy requires ingress.authHost to appear in ingress.tls hosts" -}}
+  {{- end -}}
+{{- end -}}

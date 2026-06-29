@@ -1,0 +1,16 @@
+Control Plane Sync Service has been installed.
+
+Service name:
+  {{ include "control-plane-sync-service.fullname" . }}
+
+Cluster-internal endpoint:
+  http://{{ include "control-plane-sync-service.fullname" . }}:{{ .Values.service.port }}
+
+Required mounted secrets:
+  signingKeys.existingSecret={{ .Values.signingKeys.existingSecret }}
+  runtimeSecrets.existingSecret={{ .Values.runtimeSecrets.existingSecret }}
+
+This chart is internal-only by default and does not create ingress.
+
+Post-install validation:
+  helm test {{ include "control-plane-sync-service.fullname" . }} --logs

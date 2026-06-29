@@ -1,0 +1,199 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "control-plane-sync-service.fullname" . }}
+  labels:
+    {{- include "control-plane-sync-service.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "control-plane-sync-service.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "control-plane-sync-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "control-plane-sync-service.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: control-plane-sync-service
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          env:
+            - name: CONTROL_PLANE_SYNC_DB_URL
+              value: {{ .Values.config.dbUrl | quote }}
+            - name: CONTROL_PLANE_SYNC_AUTO_APPLY_MIGRATIONS
+              value: {{ .Values.config.autoApplyMigrations | quote }}
+            - name: CONTROL_PLANE_SYNC_REQUIRE_MIGRATIONS_AT_STARTUP
+              value: {{ .Values.config.requireMigrationsAtStartup | quote }}
+            - name: CONTROL_PLANE_SYNC_PRIVATE_KEYS_PATH
+              value: {{ .Values.signingKeys.mountPath | quote }}
+            - name: CONTROL_PLANE_SYNC_ALLOWED_KEY_IDS
+              value: {{ .Values.config.allowedKeyIds | quote }}
+            - name: CONTROL_PLANE_SYNC_ACTIVE_KEY_ID
+              value: {{ .Values.config.activeKeyId | quote }}
+            - name: CONTROL_PLANE_SYNC_SHARED_TOKEN_FILE
+              value: {{ .Values.config.sharedTokenFile | quote }}
+            - name: CONTROL_PLANE_SYNC_SHARED_TOKEN
+              value: {{ .Values.config.sharedToken | quote }}
+            - name: CONTROL_PLANE_SYNC_CLIENT_TOKENS_FILE
+              value: {{ .Values.config.clientTokensFile | quote }}
+            - name: CONTROL_PLANE_SYNC_CLIENT_TOKENS_JSON
+              value: {{ .Values.config.clientTokensJson | quote }}
+            - name: CONTROL_PLANE_SYNC_CLIENT_POLICIES_FILE
+              value: {{ .Values.config.clientPoliciesFile | quote }}
+            - name: CONTROL_PLANE_SYNC_CLIENT_POLICIES_JSON
+              value: {{ .Values.config.clientPoliciesJson | quote }}
+            - name: CONTROL_PLANE_SYNC_OPERATOR_TOKENS_FILE
+              value: {{ .Values.config.operatorTokensFile | quote }}
+            - name: CONTROL_PLANE_SYNC_OPERATOR_TOKENS_JSON
+              value: {{ .Values.config.operatorTokensJson | quote }}
+            - name: CONTROL_PLANE_SYNC_OPERATOR_ROLES_FILE
+              value: {{ .Values.config.operatorRolesFile | quote }}
+            - name: CONTROL_PLANE_SYNC_OPERATOR_ROLES_JSON
+              value: {{ .Values.config.operatorRolesJson | quote }}
+            - name: CONTROL_PLANE_SYNC_REQUIRE_AUTH
+              value: {{ .Values.config.requireAuth | quote }}
+            - name: CONTROL_PLANE_SYNC_BIND
+              value: {{ .Values.config.bind | quote }}
+            - name: CONTROL_PLANE_SYNC_TLS_ENABLED
+              value: {{ .Values.config.tlsEnabled | quote }}
+            - name: CONTROL_PLANE_SYNC_TLS_CERT_PATH
+              value: {{ .Values.config.tlsCertPath | quote }}
+            - name: CONTROL_PLANE_SYNC_TLS_KEY_PATH
+              value: {{ .Values.config.tlsKeyPath | quote }}
+            - name: CONTROL_PLANE_SYNC_TLS_CLIENT_CA_PATH
+              value: {{ .Values.config.tlsClientCaPath | quote }}
+            - name: CONTROL_PLANE_SYNC_TLS_REQUIRE_CLIENT_CERT
+              value: {{ .Values.config.tlsRequireClientCert | quote }}
+            - name: CONTROL_PLANE_SYNC_ISSUER_NAME
+              value: {{ .Values.config.issuerName | quote }}
+            - name: CONTROL_PLANE_SYNC_AUTHORITY_INSTANCE_ID
+              value: {{ .Values.config.authorityInstanceId | quote }}
+            - name: CONTROL_PLANE_SYNC_AUTHORITY_SPAN_ID
+              value: {{ .Values.config.authoritySpanId | quote }}
+            - name: CONTROL_PLANE_SYNC_AUTHORITY_ENVIRONMENT
+              value: {{ .Values.config.authorityEnvironment | quote }}
+            - name: CONTROL_PLANE_SYNC_AUTHORITY_REGION
+              value: {{ .Values.config.authorityRegion | quote }}
+            - name: CONTROL_PLANE_SYNC_AUTHORITY_ROLE
+              value: {{ .Values.config.authorityRole | quote }}
+            - name: CONTROL_PLANE_SYNC_FEDERATION_READY
+              value: {{ .Values.config.federationReady | quote }}
+            - name: CONTROL_PLANE_SYNC_FEDERATION_ENABLED
+              value: {{ .Values.config.federationEnabled | quote }}
+            - name: CONTROL_PLANE_SYNC_FEDERATION_DOMAIN
+              value: {{ .Values.config.federationDomain | quote }}
+            - name: CONTROL_PLANE_SYNC_REQUIRE_DUAL_APPROVAL
+              value: {{ .Values.config.requireDualApproval | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_VALID
+              value: {{ .Values.config.defaultValid | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_IN_GRACE
+              value: {{ .Values.config.defaultInGrace | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_REVOKED
+              value: {{ .Values.config.defaultRevoked | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_REASON
+              value: {{ .Values.config.defaultReason | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_BINDING_STATUS
+              value: {{ .Values.config.defaultBindingStatus | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_EXPIRES_AT
+              value: {{ .Values.config.defaultExpiresAt | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_SUPPORT_EXPIRES_AT
+              value: {{ .Values.config.defaultSupportExpiresAt | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_REVOCATION_STATE
+              value: {{ .Values.config.defaultRevocationState | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_SUPPORT_STATE
+              value: {{ .Values.config.defaultSupportState | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_RENEWAL_URGENCY
+              value: {{ .Values.config.defaultRenewalUrgency | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_WARNINGS_JSON
+              value: {{ .Values.config.defaultWarningsJson | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_AVAILABLE
+              value: {{ .Values.config.defaultUpdateAvailable | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_REASON
+              value: {{ .Values.config.defaultUpdateReason | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_BUNDLE_ID
+              value: {{ .Values.config.defaultUpdateBundleId | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_BUNDLE_VERSION
+              value: {{ .Values.config.defaultUpdateBundleVersion | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_TARGET_PRODUCT_VERSION
+              value: {{ .Values.config.defaultUpdateTargetProductVersion | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_MIN_PRODUCT_VERSION
+              value: {{ .Values.config.defaultUpdateMinProductVersion | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_MAX_PRODUCT_VERSION
+              value: {{ .Values.config.defaultUpdateMaxProductVersion | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_MANIFEST_ID
+              value: {{ .Values.config.defaultUpdateManifestId | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_PUBLISHED_AT
+              value: {{ .Values.config.defaultUpdatePublishedAt | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_DOWNLOAD_URL
+              value: {{ .Values.config.defaultUpdateDownloadUrl | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_RELEASE_NOTES_URL
+              value: {{ .Values.config.defaultUpdateReleaseNotesUrl | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_UPDATE_WARNINGS_JSON
+              value: {{ .Values.config.defaultUpdateWarningsJson | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_HEARTBEAT_ACCEPTED
+              value: {{ .Values.config.defaultHeartbeatAccepted | quote }}
+            - name: CONTROL_PLANE_SYNC_DEFAULT_HEARTBEAT_REASON
+              value: {{ .Values.config.defaultHeartbeatReason | quote }}
+            - name: CONTROL_PLANE_SYNC_LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/control-plane-sync
+            - name: signing-keys
+              mountPath: {{ .Values.signingKeys.mountPath }}
+              readOnly: true
+            - name: runtime-secrets
+              mountPath: {{ .Values.runtimeSecrets.mountPath }}
+              readOnly: true
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: signing-keys
+          secret:
+            secretName: {{ required "signingKeys.existingSecret is required" .Values.signingKeys.existingSecret | quote }}
+        - name: runtime-secrets
+          secret:
+            secretName: {{ required "runtimeSecrets.existingSecret is required" .Values.runtimeSecrets.existingSecret | quote }}
+        {{- if .Values.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | quote }}
+        {{- end }}
+  {{- if not .Values.persistence.existingClaim }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+        {{- if .Values.persistence.storageClassName }}
+        storageClassName: {{ .Values.persistence.storageClassName }}
+        {{- end }}
+  {{- end }}

@@ -1,0 +1,142 @@
+{{- if and .Values.ingress.enabled .Values.ingressTests.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "syncratic-phase1.fullname" . }}-ingress-contract-test
+  labels:
+    {{- include "syncratic-phase1.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic-phase1.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ingress-contract-test
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingress-contract-test
+          image: "{{ include "syncratic-phase1.testImageRef" (dict "Values" .Values "test" .Values.ingressTests) }}"
+          imagePullPolicy: {{ include "syncratic-phase1.testImagePullPolicy" (dict "Values" .Values "test" .Values.ingressTests) }}
+          command:
+            - python
+            - -c
+            - |
+              import os
+              import sys
+
+              frontend_host = os.environ.get("INGRESS_FRONTEND_HOST", "").strip()
+              gateway_host = os.environ.get("INGRESS_GATEWAY_HOST", "").strip()
+              auth_host = os.environ.get("INGRESS_AUTH_HOST", "").strip()
+              public_scheme = os.environ.get("INGRESS_PUBLIC_SCHEME", "").strip() or "https"
+              auth_exposure_mode = os.environ.get("AUTH_EXPOSURE_MODE", "").strip() or "gatewayFacade"
+              auth_public_path = "/" + os.environ.get("AUTH_PUBLIC_PATH", "/auth").strip("/")
+
+              frontend_base = f"{public_scheme}://{frontend_host}" if frontend_host else ""
+              if auth_exposure_mode == "gatewayFacade":
+                  auth_base = f"{frontend_base}{auth_public_path}" if frontend_base else ""
+              else:
+                  auth_base = f"{public_scheme}://{auth_host or gateway_host}" if (auth_host or gateway_host) else ""
+              expected_connector_redirect = f"{frontend_base}/connectors/callback" if frontend_base else ""
+              expected_public_issuer = f"{auth_base}/realms/{os.environ.get('KEYCLOAK_REALM', '').strip()}" if auth_base else ""
+              expected_internal_issuer = os.environ.get("EXPECTED_INTERNAL_KEYCLOAK_ISSUER", "").strip()
+              expected_jwks = f"{expected_internal_issuer}/protocol/openid-connect/certs" if expected_internal_issuer else ""
+              expected_token = f"{expected_internal_issuer}/protocol/openid-connect/token" if expected_internal_issuer else ""
+
+              failures = []
+
+              if not frontend_host:
+                  failures.append("ingress_frontend_host_missing")
+              if not gateway_host:
+                  failures.append("ingress_gateway_host_missing")
+
+              actuals = {
+                  "frontend_nextauth_url": os.environ.get("FRONTEND_NEXTAUTH_URL", "").strip(),
+                  "frontend_public_app_url": os.environ.get("FRONTEND_PUBLIC_APP_URL", "").strip(),
+                  "frontend_keycloak_issuer": os.environ.get("FRONTEND_KEYCLOAK_ISSUER", "").strip(),
+                  "frontend_keycloak_client_id": os.environ.get("FRONTEND_KEYCLOAK_CLIENT_ID", "").strip(),
+                  "frontend_gateway_bootstrap_path": os.environ.get("FRONTEND_GATEWAY_BOOTSTRAP_PATH", "").strip(),
+                  "gateway_nextauth_url": os.environ.get("GATEWAY_NEXTAUTH_URL", "").strip(),
+                  "gateway_public_app_url": os.environ.get("GATEWAY_PUBLIC_APP_URL", "").strip(),
+                  "gateway_auth_public_base_url": os.environ.get("GATEWAY_AUTH_PUBLIC_BASE_URL", "").strip(),
+                  "gateway_keycloak_issuer": os.environ.get("GATEWAY_KEYCLOAK_ISSUER", "").strip(),
+                  "gateway_keycloak_jwks_url": os.environ.get("GATEWAY_KEYCLOAK_JWKS_URL", "").strip(),
+                  "gateway_keycloak_token_url": os.environ.get("GATEWAY_KEYCLOAK_TOKEN_URL", "").strip(),
+                  "gateway_connector_oauth_redirect_url": os.environ.get("GATEWAY_CONNECTOR_OAUTH_REDIRECT_URL", "").strip(),
+              }
+
+              expected = {
+                  "frontend_nextauth_url": frontend_base,
+                  "frontend_public_app_url": frontend_base,
+                  "frontend_keycloak_issuer": expected_public_issuer,
+                  "frontend_keycloak_client_id": os.environ.get("EXPECTED_FRONTEND_KEYCLOAK_CLIENT_ID", "").strip(),
+                  "frontend_gateway_bootstrap_path": os.environ.get("EXPECTED_FRONTEND_GATEWAY_BOOTSTRAP_PATH", "").strip(),
+                  "gateway_nextauth_url": frontend_base,
+                  "gateway_public_app_url": frontend_base,
+                  "gateway_auth_public_base_url": auth_base,
+                  "gateway_keycloak_issuer": expected_public_issuer,
+                  "gateway_keycloak_jwks_url": expected_jwks,
+                  "gateway_keycloak_token_url": expected_token,
+                  "gateway_connector_oauth_redirect_url": expected_connector_redirect,
+              }
+
+              for name, value in actuals.items():
+                  if not value:
+                      failures.append(f"{name}_missing")
+                      continue
+                  if "localhost" in value:
+                      failures.append(f"{name}_uses_localhost")
+                      continue
+                  if expected.get(name) and value != expected[name]:
+                      failures.append(f"{name}_mismatch:{value}!={expected[name]}")
+                  else:
+                      print(f"{name}:ok:{value}")
+
+              if failures:
+                  for failure in failures:
+                      print(f"FAILED:{failure}", file=sys.stderr)
+                  raise SystemExit(1)
+          env:
+            - name: INGRESS_PUBLIC_SCHEME
+              value: {{ .Values.ingress.publicScheme | quote }}
+            - name: INGRESS_FRONTEND_HOST
+              value: {{ .Values.ingress.frontendHost | quote }}
+            - name: INGRESS_GATEWAY_HOST
+              value: {{ .Values.ingress.gatewayHost | quote }}
+            - name: INGRESS_AUTH_HOST
+              value: {{ .Values.ingress.authHost | quote }}
+            - name: KEYCLOAK_REALM
+              value: {{ .Values.externalServices.keycloakRealm | quote }}
+            - name: EXPECTED_INTERNAL_KEYCLOAK_ISSUER
+              value: {{ include "syncratic-phase1.internalKeycloakIssuerUrl" . | quote }}
+            - name: EXPECTED_FRONTEND_KEYCLOAK_CLIENT_ID
+              value: {{ .Values.auth.frontendClientId | quote }}
+            - name: EXPECTED_FRONTEND_GATEWAY_BOOTSTRAP_PATH
+              value: {{ .Values.auth.gatewayBootstrapPath | quote }}
+            - name: FRONTEND_NEXTAUTH_URL
+              value: {{ include "syncratic-phase1.publicAppUrl" . | quote }}
+            - name: FRONTEND_PUBLIC_APP_URL
+              value: {{ include "syncratic-phase1.publicAppUrl" . | quote }}
+            - name: FRONTEND_KEYCLOAK_ISSUER
+              value: {{ include "syncratic-phase1.publicKeycloakIssuerUrl" . | quote }}
+            - name: FRONTEND_KEYCLOAK_CLIENT_ID
+              value: {{ .Values.auth.frontendClientId | quote }}
+            - name: FRONTEND_GATEWAY_BOOTSTRAP_PATH
+              value: {{ .Values.auth.gatewayBootstrapPath | quote }}
+            - name: GATEWAY_NEXTAUTH_URL
+              value: {{ include "syncratic-phase1.publicAppUrl" . | quote }}
+            - name: GATEWAY_PUBLIC_APP_URL
+              value: {{ include "syncratic-phase1.publicAppUrl" . | quote }}
+            - name: GATEWAY_AUTH_PUBLIC_BASE_URL
+              value: {{ include "syncratic-phase1.publicAuthBaseUrl" . | quote }}
+            - name: GATEWAY_KEYCLOAK_ISSUER
+              value: {{ include "syncratic-phase1.publicKeycloakIssuerUrl" . | quote }}
+            - name: GATEWAY_KEYCLOAK_JWKS_URL
+              value: {{ printf "%s/protocol/openid-connect/certs" (include "syncratic-phase1.internalKeycloakIssuerUrl" .) | quote }}
+            - name: GATEWAY_KEYCLOAK_TOKEN_URL
+              value: {{ printf "%s/protocol/openid-connect/token" (include "syncratic-phase1.internalKeycloakIssuerUrl" .) | quote }}
+            - name: GATEWAY_CONNECTOR_OAUTH_REDIRECT_URL
+              value: {{ include "syncratic-phase1.connectorOAuthRedirectUrl" . | quote }}
+{{- end }}

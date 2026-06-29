@@ -1,0 +1,96 @@
+{{- if .Values.deliveryTests.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "control-plane-sync-service.fullname" . }}-release-gates
+  labels:
+    {{- include "control-plane-sync-service.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "control-plane-sync-service.selectorLabels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: release-gates
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: CONTROL_PLANE_AUTHORITY_URL
+              value: http://{{ include "control-plane-sync-service.fullname" . }}:{{ .Values.service.port }}
+            - name: CONTROL_PLANE_OPERATOR_TOKENS_FILE
+              value: {{ .Values.config.operatorTokensFile | quote }}
+            - name: CONTROL_PLANE_RELEASE_GATE_PROFILES
+              value: {{ join "," .Values.deliveryTests.releaseGateProfiles | quote }}
+          command:
+            - python
+            - -c
+          args:
+            - |
+              import json
+              import os
+              import urllib.error
+              import urllib.request
+
+              base = os.environ["CONTROL_PLANE_AUTHORITY_URL"].rstrip("/")
+              token_path = os.environ["CONTROL_PLANE_OPERATOR_TOKENS_FILE"]
+              profiles = [item.strip() for item in os.environ["CONTROL_PLANE_RELEASE_GATE_PROFILES"].split(",") if item.strip()]
+
+              with open(token_path, "r", encoding="utf-8") as handle:
+                  tokens = json.load(handle)
+
+              if not isinstance(tokens, dict) or not tokens:
+                  print(json.dumps({"status": "failed", "reason": "operator_token_file_empty"}, indent=2))
+                  raise SystemExit(1)
+
+              token = next(iter(tokens.values()))
+              headers = {"Authorization": f"Bearer {token}"}
+              failures = []
+
+              for profile in profiles:
+                  request = urllib.request.Request(
+                      f"{base}/v1/authority/release-gates?profile={profile}",
+                      headers=headers,
+                  )
+                  try:
+                      with urllib.request.urlopen(request) as response:
+                          body = json.load(response)
+                  except urllib.error.HTTPError as exc:
+                      failures.append(f"{profile}:http_{exc.code}")
+                      continue
+                  except Exception as exc:  # pragma: no cover
+                      failures.append(f"{profile}:request_failed:{exc}")
+                      continue
+
+                  if not body.get("passed"):
+                      failing_checks = body.get("failing_checks") or ["unknown_failure"]
+                      failures.append(f"{profile}:{','.join(failing_checks)}")
+
+              if failures:
+                  print(json.dumps({"status": "failed", "failures": failures}, indent=2))
+                  raise SystemExit(1)
+
+              print(json.dumps({"status": "passed", "profiles": profiles}, indent=2))
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: {{ .Values.runtimeSecrets.mountPath }}
+              readOnly: true
+      volumes:
+        - name: runtime-secrets
+          secret:
+            secretName: {{ required "runtimeSecrets.existingSecret is required" .Values.runtimeSecrets.existingSecret | quote }}
+{{- end }}

@@ -1,0 +1,19 @@
+registration:
+  les:
+    controlPlane:
+      url: https://control.syncratic.example
+      licenseStatusPath: /v1/license/status-sync
+      updateDiscoveryPath: /v1/update/discovery
+      heartbeatPath: /v1/heartbeat
+    bootstrapTokenTtlSeconds: 900
+    steadyStateAuthMode: mtls
+    licenseHandoffMode: embedded_signed_license
+    localInstallEndpoint: /license/install
+    mtls:
+      clientValidityDays: 365
+      clientOrg: Syncratic
+      clientOu: LES
+      caSecret:
+        existingSecret: syncratic-phase1-registration-les-mtls-ca
+    initialLicenseSecret:
+      existingSecret: syncratic-phase1-registration-les-initial-license

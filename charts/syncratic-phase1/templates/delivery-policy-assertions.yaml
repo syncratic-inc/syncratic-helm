@@ -1,0 +1,42 @@
+{{- $onlineRegistry := eq .Values.global.deliveryMode "online_registry" -}}
+{{- if $onlineRegistry -}}
+  {{- $firstPartyImages := list
+    (dict "name" "gateway" "image" .Values.gateway.image "enabled" .Values.gateway.enabled)
+    (dict "name" "frontend" "image" .Values.frontend.image "enabled" .Values.frontend.enabled)
+    (dict "name" "runtimeNodeAgent" "image" .Values.runtimeNodeAgent.image "enabled" .Values.runtimeNodeAgent.enabled)
+    (dict "name" "runtimeWorkers" "image" .Values.runtimeWorkers.image "enabled" .Values.runtimeWorkers.enabled)
+    (dict "name" "help" "image" .Values.help.image "enabled" .Values.help.enabled)
+    (dict "name" "help.curator" "image" .Values.help.curator.image "enabled" (and .Values.help.enabled .Values.help.curator.enabled))
+    (dict "name" "licensing" "image" .Values.licensing.image "enabled" .Values.licensing.enabled)
+    (dict "name" "registration" "image" .Values.registration.image "enabled" .Values.registration.enabled)
+    (dict "name" "evaluation" "image" .Values.evaluation.image "enabled" .Values.evaluation.enabled)
+    (dict "name" "transformer" "image" .Values.transformer.image "enabled" .Values.transformer.enabled)
+  -}}
+  {{- if not (.Values.global.firstPartyImageRegistry | trim) -}}
+    {{- range $firstPartyImages }}
+      {{- if and .enabled (hasPrefix "syncratic/" .image.repository) -}}
+        {{- fail (printf "global.deliveryMode=online_registry requires global.firstPartyImageRegistry when %s.image.repository uses bootstrap-style repository %q" .name .image.repository) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{- $allImages := concat $firstPartyImages (list
+    (dict "name" "postgres" "image" .Values.postgres.image "enabled" .Values.postgres.enabled)
+    (dict "name" "redis" "image" .Values.redis.image "enabled" .Values.redis.enabled)
+    (dict "name" "qdrant" "image" .Values.qdrant.image "enabled" .Values.qdrant.enabled)
+    (dict "name" "neo4j" "image" .Values.neo4j.image "enabled" .Values.neo4j.enabled)
+    (dict "name" "keycloak" "image" .Values.keycloak.image "enabled" .Values.keycloak.enabled)
+    (dict "name" "keycloak.database" "image" .Values.keycloak.database.image "enabled" .Values.keycloak.enabled)
+    (dict "name" "bgeEmbeddings" "image" .Values.bgeEmbeddings.image "enabled" .Values.bgeEmbeddings.enabled)
+    (dict "name" "llmFast" "image" .Values.llmFast.image "enabled" .Values.llmFast.enabled)
+    (dict "name" "llmDeep" "image" .Values.llmDeep.image "enabled" .Values.llmDeep.enabled)
+    (dict "name" "orchestrator" "image" .Values.orchestrator.image "enabled" .Values.orchestrator.enabled)
+  ) -}}
+  {{- range $allImages }}
+    {{- $tag := default "" .image.tag | trim -}}
+    {{- $digest := default "" .image.digest | trim -}}
+    {{- if and .enabled (eq $tag "latest") (not $digest) -}}
+      {{- fail (printf "global.deliveryMode=online_registry does not allow %s.image.tag=latest without an immutable digest override" .name) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

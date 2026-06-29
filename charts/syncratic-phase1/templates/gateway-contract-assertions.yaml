@@ -1,0 +1,10 @@
+{{- if .Values.gateway.enabled -}}
+  {{- if and .Values.gateway.initialOperatorBootstrapSecret.create (not (.Values.gateway.initialOperatorBootstrapSecret.bootstrapArtifactJson | trim)) -}}
+    {{- fail "gateway.initialOperatorBootstrapSecret.bootstrapArtifactJson is required when gateway.initialOperatorBootstrapSecret.create=true" -}}
+  {{- end -}}
+  {{- $externalPostgresUrl := .Values.externalServices.postgresUrl | trim -}}
+  {{- $externalMigrationDsn := .Values.externalServices.gatewayMigrationDsn | trim -}}
+  {{- if and .Values.gateway.migrationHook.enabled (not .Values.postgres.enabled) $externalPostgresUrl (not (.Values.externalServices.connectionSecret.existingSecret | trim)) (or (not $externalMigrationDsn) (eq $externalMigrationDsn $externalPostgresUrl)) -}}
+    {{- fail "gateway.migrationHook.enabled=true with externalServices.postgresUrl requires a distinct externalServices.gatewayMigrationDsn or externalServices.connectionSecret.existingSecret so migrations do not run with the application DSN" -}}
+  {{- end -}}
+{{- end -}}

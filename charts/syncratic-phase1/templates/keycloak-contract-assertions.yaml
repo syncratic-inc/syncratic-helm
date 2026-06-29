@@ -1,0 +1,44 @@
+{{- if .Values.keycloak.enabled -}}
+  {{- if and (not (.Values.keycloak.adminSecret.existingSecret | trim)) (not .Values.keycloak.adminSecret.create) -}}
+    {{- fail "keycloak.enabled=true requires keycloak.adminSecret.existingSecret or keycloak.adminSecret.create=true" -}}
+  {{- end -}}
+  {{- if and (not (.Values.keycloak.database.existingSecret | trim)) (not .Values.keycloak.database.create) -}}
+    {{- fail "keycloak.enabled=true requires keycloak.database.existingSecret or keycloak.database.create=true" -}}
+  {{- end -}}
+  {{- if and (not (.Values.keycloak.realm.existingConfigMap | trim)) (not (.Values.keycloak.realm.existingSecret | trim)) (not .Values.keycloak.realm.create) -}}
+    {{- fail "keycloak.enabled=true requires keycloak.realm.existingConfigMap, keycloak.realm.existingSecret, or keycloak.realm.create=true" -}}
+  {{- end -}}
+  {{- if and .Values.ingress.enabled (ne .Values.auth.exposureMode "gatewayFacade") (not (.Values.ingress.authHost | trim)) -}}
+    {{- fail "keycloak.enabled=true with ingress.enabled=true requires ingress.authHost unless auth.exposureMode=gatewayFacade" -}}
+  {{- end -}}
+{{- end -}}
+
+
+{{- $authSaml := default dict .Values.auth.saml -}}
+{{- if (default false $authSaml.enabled) -}}
+  {{- if not .Values.auth.identityProvisioning.enabled -}}
+    {{- fail "auth.saml.enabled=true requires auth.identityProvisioning.enabled=true so the gateway can reconcile SAML providers and browse Keycloak groups" -}}
+  {{- end -}}
+  {{- if ne (default "keycloak_groups" $authSaml.groupDiscoveryMode) "keycloak_groups" -}}
+    {{- fail "auth.saml.groupDiscoveryMode currently supports only keycloak_groups" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.auth.bootstrapSmtp.enabled -}}
+  {{- if not (.Values.auth.bootstrapSmtp.host | trim) -}}
+    {{- fail "auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.host" -}}
+  {{- end -}}
+  {{- if not (.Values.auth.bootstrapSmtp.fromEmail | trim) -}}
+    {{- fail "auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.fromEmail" -}}
+  {{- end -}}
+  {{- if and (not (.Values.auth.bootstrapSmtp.passwordSecret.existingSecret | trim)) (not .Values.auth.bootstrapSmtp.passwordSecret.create) -}}
+    {{- fail "auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.passwordSecret.existingSecret or passwordSecret.create=true" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if not (has .Values.auth.exposureMode (list "gatewayFacade" "externalAuthHost" "pathProxiedKeycloak")) -}}
+  {{- fail "auth.exposureMode must be one of gatewayFacade, externalAuthHost, pathProxiedKeycloak" -}}
+{{- end -}}
+{{- if and (eq .Values.auth.exposureMode "gatewayFacade") (not (.Values.ingress.frontendHost | trim)) .Values.ingress.enabled -}}
+  {{- fail "auth.exposureMode=gatewayFacade with ingress.enabled=true requires ingress.frontendHost" -}}
+{{- end -}}

@@ -1,0 +1,138 @@
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: syncratic/control-plane-sync-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 8095
+
+podAnnotations: {}
+resources: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+containerSecurityContext: {}
+
+persistence:
+  existingClaim: ""
+  size: 5Gi
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+
+networkPolicy:
+  enabled: true
+  allowAllEgress: true
+  allowIngressNamespaceLabels: {}
+
+signingKeys:
+  existingSecret: ""
+  mountPath: /app/keys/private
+
+runtimeSecrets:
+  existingSecret: ""
+  mountPath: /run/secrets
+
+deliveryTests:
+  enabled: true
+  releaseGateProfiles:
+    - install
+
+config:
+  dbUrl: sqlite:////var/lib/control-plane-sync/control-plane-sync.db
+  autoApplyMigrations: "true"
+  requireMigrationsAtStartup: "false"
+  bind: 0.0.0.0:8095
+  issuerName: Syncratic Control Plane
+  authorityInstanceId: control-plane-sync-primary
+  authoritySpanId: syncratic-default-span
+  authorityEnvironment: ""
+  authorityRegion: ""
+  authorityRole: primary
+  federationReady: "true"
+  federationEnabled: "false"
+  federationDomain: ""
+  requireDualApproval: "true"
+  allowedKeyIds: ed25519-prod-2026-01
+  activeKeyId: ed25519-prod-2026-01
+  requireAuth: "true"
+  logLevel: INFO
+
+  clientTokensFile: /run/secrets/control-plane-sync-client-tokens.json
+  clientTokensJson: ""
+  clientPoliciesFile: /run/secrets/control-plane-sync-client-policies.json
+  clientPoliciesJson: ""
+  sharedTokenFile: /run/secrets/control-plane-sync-shared-token
+  sharedToken: ""
+  operatorTokensFile: /run/secrets/control-plane-sync-operator-tokens.json
+  operatorTokensJson: ""
+  operatorRolesFile: /run/secrets/control-plane-sync-operator-roles.json
+  operatorRolesJson: ""
+
+  tlsEnabled: "false"
+  tlsCertPath: ""
+  tlsKeyPath: ""
+  tlsClientCaPath: ""
+  tlsRequireClientCert: "false"
+
+  defaultValid: "true"
+  defaultInGrace: "false"
+  defaultRevoked: "false"
+  defaultReason: licensed
+  defaultBindingStatus: matched
+  defaultExpiresAt: ""
+  defaultSupportExpiresAt: ""
+  defaultRevocationState: none
+  defaultSupportState: renewal_window
+  defaultRenewalUrgency: upcoming
+  defaultWarningsJson: "[]"
+  defaultUpdateAvailable: "false"
+  defaultUpdateReason: no_update
+  defaultUpdateBundleId: ""
+  defaultUpdateBundleVersion: ""
+  defaultUpdateTargetProductVersion: ""
+  defaultUpdateMinProductVersion: ""
+  defaultUpdateMaxProductVersion: ""
+  defaultUpdateManifestId: ""
+  defaultUpdatePublishedAt: ""
+  defaultUpdateDownloadUrl: ""
+  defaultUpdateReleaseNotesUrl: ""
+  defaultUpdateWarningsJson: "[]"
+  defaultHeartbeatAccepted: "true"
+  defaultHeartbeatReason: recorded
+
+startupProbe:
+  exec:
+    command:
+      - python
+      - -m
+      - app.healthcheck
+  failureThreshold: 30
+  periodSeconds: 10
+
+readinessProbe:
+  exec:
+    command:
+      - python
+      - -m
+      - app.healthcheck
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+livenessProbe:
+  exec:
+    command:
+      - python
+      - -m
+      - app.healthcheck
+  initialDelaySeconds: 30
+  periodSeconds: 15
