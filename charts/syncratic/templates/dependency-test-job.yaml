@@ -1,0 +1,142 @@
+{{- if .Values.dependencyTests.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "syncratic.fullname" . }}-dependency-test
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: dependency-test
+    spec:
+      restartPolicy: Never
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: dependency-test
+          image: "{{ include "syncratic.testImageRef" (dict "Values" .Values "test" .Values.dependencyTests) }}"
+          imagePullPolicy: {{ include "syncratic.testImagePullPolicy" (dict "Values" .Values "test" .Values.dependencyTests) }}
+          command:
+            - python
+            - -c
+            - |
+              import os
+              import socket
+              import sys
+              from urllib.parse import urlparse
+
+              targets = [
+              {{- range $name, $target := .Values.dependencyTests.tcpTargets }}
+              {{- if $target.enabled }}
+                  {
+                      "name": {{ $name | quote }},
+                      "url": os.environ.get({{ printf "TARGET_%s_URL" ($name | upper) | quote }}, ""),
+                      "host": os.environ.get({{ printf "TARGET_%s_HOST" ($name | upper) | quote }}, ""),
+                      "port": int(os.environ.get({{ printf "TARGET_%s_PORT" ($name | upper) | quote }}, {{ printf "%v" $target.port | quote }})),
+                  },
+              {{- end }}
+              {{- end }}
+              ]
+
+              def resolve_target(target):
+                  if target["host"]:
+                      return target["host"], target["port"]
+                  if target["url"]:
+                      parsed = urlparse(target["url"])
+                      if parsed.hostname:
+                          port = parsed.port
+                          if port is None:
+                              if parsed.scheme in {"https"}:
+                                  port = 443
+                              elif parsed.scheme in {"http"}:
+                                  port = 80
+                              elif parsed.scheme in {"redis"}:
+                                  port = 6379
+                              elif parsed.scheme in {"bolt"}:
+                                  port = 7687
+                              elif parsed.scheme in {"postgres", "postgresql"}:
+                                  port = 5432
+                              else:
+                                  port = target["port"]
+                          return parsed.hostname, port
+                  return "", target["port"]
+
+              failures = []
+              for target in targets:
+                  if not target["host"] and not target["url"]:
+                      print(f'{target["name"]}:skipped')
+                      continue
+                  host, port = resolve_target(target)
+                  if not host:
+                      failures.append(f'{target["name"]}:missing_host')
+                      continue
+                  try:
+                      with socket.create_connection((host, port), timeout=5):
+                          print(f'{target["name"]}:ok:{host}:{port}')
+                  except OSError as exc:
+                      failures.append(f'{target["name"]}:{host}:{port}:{exc}')
+
+              if failures:
+                  for failure in failures:
+                      print(f'FAILED:{failure}', file=sys.stderr)
+                  raise SystemExit(1)
+          env:
+          {{- if or $.Values.externalServices.trustBundle.existingConfigMap $.Values.externalServices.trustBundle.existingSecret }}
+            - name: REQUESTS_CA_BUNDLE
+              value: {{ printf "%s/%s" $.Values.externalServices.trustBundle.mountPath $.Values.externalServices.trustBundle.key | quote }}
+            - name: SSL_CERT_FILE
+              value: {{ printf "%s/%s" $.Values.externalServices.trustBundle.mountPath $.Values.externalServices.trustBundle.key | quote }}
+          {{- end }}
+          {{- range $name, $target := .Values.dependencyTests.tcpTargets }}
+          {{- if $target.enabled }}
+            {{- if and $.Values.externalServices.connectionSecret.existingSecret (or (and (eq $name "postgres") (not $.Values.postgres.enabled)) (and (eq $name "redis") (not $.Values.redis.enabled)) (and (eq $name "qdrant") (not $.Values.qdrant.enabled)) (and (eq $name "neo4j") (not $.Values.neo4j.enabled)) (and (eq $name "keycloak") (not $.Values.keycloak.enabled)) (eq $name "bgeEmbeddings") (and (eq $name "llmFast") (not $.Values.llmFast.enabled)) (and (eq $name "llmDeep") (not $.Values.llmDeep.enabled)) (eq $name "transformer")) }}
+            - name: {{ printf "TARGET_%s_URL" ($name | upper) }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.externalConnectionSecretName" $ }}
+                  key: {{- if eq $name "postgres" }} {{ $.Values.externalServices.connectionSecret.keys.postgresUrl }}
+                    {{- else if eq $name "redis" }} {{ $.Values.externalServices.connectionSecret.keys.redisUrl }}
+                    {{- else if eq $name "qdrant" }} {{ $.Values.externalServices.connectionSecret.keys.qdrantUrl }}
+                    {{- else if eq $name "neo4j" }} {{ $.Values.externalServices.connectionSecret.keys.neo4jUri }}
+                    {{- else if eq $name "keycloak" }} {{ $.Values.externalServices.connectionSecret.keys.keycloakInternalUrl }}
+                    {{- else if eq $name "bgeEmbeddings" }} {{ $.Values.externalServices.connectionSecret.keys.bgeEmbeddingsUrl }}
+                    {{- else if eq $name "llmFast" }} {{ $.Values.externalServices.connectionSecret.keys.llmFastUrl }}
+                    {{- else if eq $name "llmDeep" }} {{ $.Values.externalServices.connectionSecret.keys.llmDeepUrl }}
+                    {{- else if eq $name "transformer" }} {{ $.Values.externalServices.connectionSecret.keys.transformerUrl }}
+                    {{- end }}
+            {{- else }}
+            - name: {{ printf "TARGET_%s_URL" ($name | upper) }}
+              value: {{ tpl (printf "%v" $target.url) $ | quote }}
+            {{- end }}
+            - name: {{ printf "TARGET_%s_HOST" ($name | upper) }}
+              value: {{ tpl (printf "%v" $target.host) $ | quote }}
+            - name: {{ printf "TARGET_%s_PORT" ($name | upper) }}
+              value: {{ printf "%v" $target.port | quote }}
+          {{- end }}
+          {{- end }}
+          {{- if or $.Values.externalServices.trustBundle.existingConfigMap $.Values.externalServices.trustBundle.existingSecret }}
+          volumeMounts:
+            - name: external-trust-bundle
+              mountPath: {{ $.Values.externalServices.trustBundle.mountPath }}
+              readOnly: true
+          {{- end }}
+      {{- if or $.Values.externalServices.trustBundle.existingConfigMap $.Values.externalServices.trustBundle.existingSecret }}
+      volumes:
+        - name: external-trust-bundle
+          {{- if $.Values.externalServices.trustBundle.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.externalTrustBundleSecretName" $ }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.externalTrustBundleConfigMapName" $ }}
+          {{- end }}
+      {{- end }}
+{{- end }}

@@ -6,19 +6,19 @@ This repository intentionally contains Helm chart sources and packaged chart arc
 
 ## Charts
 
-- `syncratic-phase1`: main Syncratic runtime chart for gateway, frontend, identity facade, storage dependencies, workers, Help, licensing, observability, and runtime policy gates.
+- `syncratic`: main Syncratic runtime chart for gateway, frontend, identity facade, storage dependencies, workers, Help, licensing, observability, and runtime policy gates.
 - `control-plane-sync-service`: standalone control-plane authority synchronization service chart.
 
 ## Install From Chart Source
 
 ```bash
-helm install syncratic-phase1 ./charts/syncratic-phase1   --namespace syncratic   --create-namespace   -f customer-values.yaml
+helm install syncratic ./charts/syncratic   --namespace syncratic   --create-namespace   -f customer-values.yaml
 ```
 
 ## Install From Packaged Chart
 
 ```bash
-helm install syncratic-phase1 ./packages/syncratic-phase1-0.1.0.tgz   --namespace syncratic   --create-namespace   -f customer-values.yaml
+helm install syncratic ./packages/syncratic-0.1.0.tgz   --namespace syncratic   --create-namespace   -f customer-values.yaml
 ```
 
 ## Helm Repository Usage
@@ -28,7 +28,7 @@ If this repository is published through GitHub Pages, add it as a Helm repositor
 ```bash
 helm repo add syncratic https://syncratic-inc.github.io/syncratic-helm
 helm repo update
-helm install syncratic-phase1 syncratic/syncratic-phase1   --namespace syncratic   --create-namespace   -f customer-values.yaml
+helm install syncratic syncratic/syncratic   --namespace syncratic   --create-namespace   -f customer-values.yaml
 ```
 
 ## Required Customer Inputs

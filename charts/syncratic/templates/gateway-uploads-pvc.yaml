@@ -1,0 +1,17 @@
+{{- if and .Values.gateway.enabled .Values.gateway.persistence.uploads.enabled (not .Values.gateway.persistence.uploads.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "syncratic.gatewayUploadsPvcName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.gateway.persistence.uploads.size }}
+  {{- if .Values.gateway.persistence.uploads.storageClassName }}
+  storageClassName: {{ .Values.gateway.persistence.uploads.storageClassName }}
+  {{- end }}
+{{- end }}

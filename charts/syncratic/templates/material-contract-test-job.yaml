@@ -1,0 +1,646 @@
+{{- if .Values.materialTests.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "syncratic.fullname" . }}-material-contract-test
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: material-contract-test
+    spec:
+      restartPolicy: Never
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: material-contract-test
+          image: "{{ include "syncratic.testImageRef" (dict "Values" .Values "test" .Values.materialTests) }}"
+          imagePullPolicy: {{ include "syncratic.testImagePullPolicy" (dict "Values" .Values "test" .Values.materialTests) }}
+          command:
+            - python
+            - -c
+            - |
+              import json
+              import os
+              import sys
+              from pathlib import Path
+
+              bootstrap_secret_dir = Path("/contract/bootstrap-secret")
+              auth_secret_dir = Path("/contract/auth-secret")
+              identity_provisioning_secret_dir = Path("/contract/identity-provisioning-secret")
+              keycloak_admin_secret_dir = Path("/contract/keycloak-admin-secret")
+              keycloak_db_secret_dir = Path("/contract/keycloak-db-secret")
+              observability_grafana_admin_secret_dir = Path("/contract/observability-grafana-admin-secret")
+              help_secret_dir = Path("/contract/help-gateway-secret")
+              evaluation_secret_dir = Path("/contract/evaluation-runtime-secret")
+              orchestrator_secret_dir = Path("/contract/orchestrator-runtime-secret")
+              postgres_secret_dir = Path("/contract/postgres-auth-secret")
+              registration_les_mtls_ca_dir = Path("/contract/registration-les-mtls-ca")
+              registration_les_initial_license_dir = Path("/contract/registration-les-initial-license")
+              public_keys_path = Path("/contract/public-keys/public_keys.json")
+              registration_public_keys_path = Path("/contract/registration-public-keys/public_keys.json")
+              keycloak_realm_path = os.environ.get("KEYCLOAK_REALM_PATH", "").strip()
+              trust_bundle_path = os.environ.get("TRUST_BUNDLE_PATH", "").strip()
+              control_plane_mode = os.environ.get("CONTROL_PLANE_MODE", "").strip()
+              help_enabled = os.environ.get("HELP_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              help_curator_enabled = os.environ.get("HELP_CURATOR_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              keycloak_enabled = os.environ.get("KEYCLOAK_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              identity_provisioning_enabled = os.environ.get("IDENTITY_PROVISIONING_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              observability_enabled = os.environ.get("OBSERVABILITY_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              evaluation_enabled = os.environ.get("EVALUATION_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              orchestrator_enabled = os.environ.get("ORCHESTRATOR_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              postgres_enabled = os.environ.get("POSTGRES_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              registration_enabled = os.environ.get("REGISTRATION_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              registration_les_mtls_enabled = os.environ.get("REGISTRATION_LES_MTLS_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              registration_les_initial_license_enabled = os.environ.get("REGISTRATION_LES_INITIAL_LICENSE_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+              control_plane_token_path = os.environ.get("CONTROL_PLANE_TOKEN_PATH", "").strip()
+              control_plane_ca_path = os.environ.get("CONTROL_PLANE_CA_PATH", "").strip()
+              control_plane_client_cert_path = os.environ.get("CONTROL_PLANE_CLIENT_CERT_PATH", "").strip()
+              control_plane_client_key_path = os.environ.get("CONTROL_PLANE_CLIENT_KEY_PATH", "").strip()
+
+              failures = []
+
+              bootstrap_required_keys = [
+              {{- range .Values.materialTests.bootstrapRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              auth_required_keys = [
+              {{- range .Values.materialTests.authRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              identity_provisioning_required_keys = [
+              {{- range .Values.materialTests.identityProvisioningRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              keycloak_admin_required_keys = [
+              {{- range .Values.materialTests.keycloakAdminRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              keycloak_db_required_keys = [
+              {{- range .Values.materialTests.keycloakDbRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              observability_grafana_admin_required_keys = [
+              {{- range .Values.materialTests.observabilityGrafanaAdminRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              help_required_keys = [
+              {{- range .Values.materialTests.helpRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              help_curator_required_keys = [
+              {{- range .Values.materialTests.helpCuratorRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              evaluation_required_keys = [
+              {{- range .Values.materialTests.evaluationRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              orchestrator_required_keys = [
+              {{- range .Values.materialTests.orchestratorRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              postgres_required_keys = [
+              {{- range .Values.materialTests.postgresRequiredSecretKeys }}
+                  {{ . | quote }},
+              {{- end }}
+              ]
+
+              registration_les_mtls_required_keys = [
+                  {{ .Values.registration.les.mtls.caSecret.keys.cert | quote }},
+                  {{ .Values.registration.les.mtls.caSecret.keys.key | quote }},
+              ]
+
+              registration_les_initial_license_required_keys = [
+                  {{ .Values.registration.les.initialLicenseSecret.keys.licenseJson | quote }},
+              ]
+
+              for key_name in bootstrap_required_keys:
+                  key_path = bootstrap_secret_dir / key_name
+                  if not key_path.exists():
+                      failures.append(f"bootstrap_secret_missing:{key_name}")
+                      continue
+                  value = key_path.read_text().strip()
+                  if not value:
+                      failures.append(f"bootstrap_secret_empty:{key_name}")
+                  else:
+                      print(f"bootstrap_secret_ok:{key_name}")
+
+              for key_name in auth_required_keys:
+                  key_path = auth_secret_dir / key_name
+                  if not key_path.exists():
+                      failures.append(f"auth_secret_missing:{key_name}")
+                      continue
+                  value = key_path.read_text().strip()
+                  if not value:
+                      failures.append(f"auth_secret_empty:{key_name}")
+                  else:
+                      print(f"auth_secret_ok:{key_name}")
+
+              if identity_provisioning_enabled:
+                  for key_name in identity_provisioning_required_keys:
+                      key_path = identity_provisioning_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"identity_provisioning_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"identity_provisioning_secret_empty:{key_name}")
+                      else:
+                          print(f"identity_provisioning_secret_ok:{key_name}")
+
+              if keycloak_enabled:
+                  for key_name in keycloak_admin_required_keys:
+                      key_path = keycloak_admin_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"keycloak_admin_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"keycloak_admin_secret_empty:{key_name}")
+                      else:
+                          print(f"keycloak_admin_secret_ok:{key_name}")
+
+                  for key_name in keycloak_db_required_keys:
+                      key_path = keycloak_db_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"keycloak_db_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"keycloak_db_secret_empty:{key_name}")
+                      else:
+                          print(f"keycloak_db_secret_ok:{key_name}")
+
+                  if not keycloak_realm_path:
+                      failures.append("keycloak_realm_path_missing")
+                  else:
+                      realm_path = Path(keycloak_realm_path)
+                      if not realm_path.exists():
+                          failures.append("keycloak_realm_missing")
+                      elif not realm_path.read_text().strip():
+                          failures.append("keycloak_realm_empty")
+                      else:
+                          print(f"keycloak_realm_ok:{keycloak_realm_path}")
+
+              if observability_enabled:
+                  for key_name in observability_grafana_admin_required_keys:
+                      key_path = observability_grafana_admin_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"observability_grafana_admin_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"observability_grafana_admin_secret_empty:{key_name}")
+                      else:
+                          print(f"observability_grafana_admin_secret_ok:{key_name}")
+
+              if help_enabled:
+                  for key_name in help_required_keys:
+                      key_path = help_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"help_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"help_secret_empty:{key_name}")
+                      else:
+                          print(f"help_secret_ok:{key_name}")
+
+              if help_curator_enabled:
+                  for key_name in help_curator_required_keys:
+                      key_path = help_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"help_curator_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"help_curator_secret_empty:{key_name}")
+                      else:
+                          print(f"help_curator_secret_ok:{key_name}")
+
+              if evaluation_enabled:
+                  for key_name in evaluation_required_keys:
+                      key_path = evaluation_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"evaluation_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"evaluation_secret_empty:{key_name}")
+                      else:
+                          print(f"evaluation_secret_ok:{key_name}")
+
+              if orchestrator_enabled:
+                  for key_name in orchestrator_required_keys:
+                      key_path = orchestrator_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"orchestrator_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"orchestrator_secret_empty:{key_name}")
+                      else:
+                          print(f"orchestrator_secret_ok:{key_name}")
+
+              if postgres_enabled:
+                  for key_name in postgres_required_keys:
+                      key_path = postgres_secret_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"postgres_secret_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"postgres_secret_empty:{key_name}")
+                      else:
+                          print(f"postgres_secret_ok:{key_name}")
+
+              if not public_keys_path.exists():
+                  failures.append("public_keys_missing")
+              else:
+                  try:
+                      payload = json.loads(public_keys_path.read_text())
+                  except Exception as exc:
+                      failures.append(f"public_keys_invalid_json:{type(exc).__name__}:{exc}")
+                  else:
+                      if isinstance(payload, dict) and isinstance(payload.get("keys"), list):
+                          keys = payload.get("keys")
+                      elif isinstance(payload, dict):
+                          keys = [
+                              value
+                              for key, value in payload.items()
+                              if str(key or "").strip() and str(value or "").strip()
+                          ]
+                      else:
+                          keys = None
+                      if not isinstance(keys, list):
+                          failures.append("public_keys_invalid_shape")
+                      elif {{ ternary "True" "False" .Values.materialTests.publicKeyConfig.requireNonEmptyKeySet }} and not keys:
+                          failures.append("public_keys_empty")
+                      else:
+                          print(f"public_keys_ok:{len(keys)}")
+
+              if registration_enabled:
+                  if not registration_public_keys_path.exists():
+                      failures.append("registration_public_keys_missing")
+                  else:
+                      try:
+                          payload = json.loads(registration_public_keys_path.read_text())
+                      except Exception as exc:
+                          failures.append(f"registration_public_keys_invalid_json:{type(exc).__name__}:{exc}")
+                      else:
+                          if not isinstance(payload, dict):
+                              failures.append("registration_public_keys_invalid_shape")
+                          elif {{ ternary "True" "False" .Values.materialTests.registrationPublicKeyConfig.requireNonEmptyKeySet }} and not payload:
+                              failures.append("registration_public_keys_empty")
+                          else:
+                              print(f"registration_public_keys_ok:{len(payload)}")
+
+              if registration_les_mtls_enabled:
+                  for key_name in registration_les_mtls_required_keys:
+                      key_path = registration_les_mtls_ca_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"registration_les_mtls_ca_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"registration_les_mtls_ca_empty:{key_name}")
+                      else:
+                          print(f"registration_les_mtls_ca_ok:{key_name}")
+
+              if registration_les_initial_license_enabled:
+                  for key_name in registration_les_initial_license_required_keys:
+                      key_path = registration_les_initial_license_dir / key_name
+                      if not key_path.exists():
+                          failures.append(f"registration_les_initial_license_missing:{key_name}")
+                          continue
+                      value = key_path.read_text().strip()
+                      if not value:
+                          failures.append(f"registration_les_initial_license_empty:{key_name}")
+                      else:
+                          print(f"registration_les_initial_license_ok:{key_name}")
+
+              if trust_bundle_path:
+                  trust_path = Path(trust_bundle_path)
+                  if not trust_path.exists():
+                      failures.append("trust_bundle_missing")
+                  elif not trust_path.read_text().strip():
+                      failures.append("trust_bundle_empty")
+                  else:
+                      print(f"trust_bundle_ok:{trust_bundle_path}")
+
+              if control_plane_mode == "connected":
+                  if not control_plane_token_path:
+                      failures.append("control_plane_token_path_missing")
+                  else:
+                      token_path = Path(control_plane_token_path)
+                      if not token_path.exists():
+                          failures.append("control_plane_token_missing")
+                      elif not token_path.read_text().strip():
+                          failures.append("control_plane_token_empty")
+                      else:
+                          print(f"control_plane_token_ok:{control_plane_token_path}")
+
+                  if control_plane_ca_path:
+                      ca_path = Path(control_plane_ca_path)
+                      if not ca_path.exists():
+                          failures.append("control_plane_ca_missing")
+                      elif not ca_path.read_text().strip():
+                          failures.append("control_plane_ca_empty")
+                      else:
+                          print(f"control_plane_ca_ok:{control_plane_ca_path}")
+
+                  if control_plane_client_cert_path or control_plane_client_key_path:
+                      if not control_plane_client_cert_path or not control_plane_client_key_path:
+                          failures.append("control_plane_client_tls_incomplete")
+                      else:
+                          cert_path = Path(control_plane_client_cert_path)
+                          key_path = Path(control_plane_client_key_path)
+                          if not cert_path.exists():
+                              failures.append("control_plane_client_cert_missing")
+                          elif not cert_path.read_text().strip():
+                              failures.append("control_plane_client_cert_empty")
+                          else:
+                              print(f"control_plane_client_cert_ok:{control_plane_client_cert_path}")
+                          if not key_path.exists():
+                              failures.append("control_plane_client_key_missing")
+                          elif not key_path.read_text().strip():
+                              failures.append("control_plane_client_key_empty")
+                          else:
+                              print(f"control_plane_client_key_ok:{control_plane_client_key_path}")
+
+              if failures:
+                  for failure in failures:
+                      print(f"FAILED:{failure}", file=sys.stderr)
+                  raise SystemExit(1)
+          volumeMounts:
+            - name: bootstrap-secret
+              mountPath: /contract/bootstrap-secret
+              readOnly: true
+            - name: auth-runtime-secret
+              mountPath: /contract/auth-secret
+              readOnly: true
+            {{- if .Values.auth.identityProvisioning.enabled }}
+            - name: identity-provisioning-secret
+              mountPath: /contract/identity-provisioning-secret
+              readOnly: true
+            {{- end }}
+            {{- if .Values.keycloak.enabled }}
+            - name: keycloak-admin-secret
+              mountPath: /contract/keycloak-admin-secret
+              readOnly: true
+            - name: keycloak-db-secret
+              mountPath: /contract/keycloak-db-secret
+              readOnly: true
+            - name: keycloak-realm
+              mountPath: /contract/keycloak-realm
+              readOnly: true
+            {{- end }}
+            {{- if .Values.help.enabled }}
+            - name: help-gateway-secret
+              mountPath: /contract/help-gateway-secret
+              readOnly: true
+            {{- end }}
+            {{- if .Values.observability.enabled }}
+            - name: observability-grafana-admin-secret
+              mountPath: /contract/observability-grafana-admin-secret
+              readOnly: true
+            {{- end }}
+            {{- if .Values.evaluation.enabled }}
+            - name: evaluation-runtime-secret
+              mountPath: /contract/evaluation-runtime-secret
+              readOnly: true
+            {{- end }}
+            {{- if .Values.orchestrator.enabled }}
+            - name: orchestrator-runtime-secret
+              mountPath: /contract/orchestrator-runtime-secret
+              readOnly: true
+            {{- end }}
+            {{- if .Values.postgres.enabled }}
+            - name: postgres-auth-secret
+              mountPath: /contract/postgres-auth-secret
+              readOnly: true
+            {{- end }}
+            - name: public-keys
+              mountPath: /contract/public-keys
+              readOnly: true
+            {{- if .Values.registration.enabled }}
+            - name: registration-public-keys
+              mountPath: /contract/registration-public-keys
+              readOnly: true
+            {{- if or .Values.registration.les.mtls.caSecret.existingSecret .Values.registration.les.mtls.caSecret.create }}
+            - name: registration-les-mtls-ca
+              mountPath: /contract/registration-les-mtls-ca
+              readOnly: true
+            {{- end }}
+            {{- if or .Values.registration.les.initialLicenseSecret.existingSecret .Values.registration.les.initialLicenseSecret.create }}
+            - name: registration-les-initial-license
+              mountPath: /contract/registration-les-initial-license
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            {{- if or .Values.externalServices.trustBundle.existingConfigMap .Values.externalServices.trustBundle.existingSecret }}
+            - name: external-trust-bundle
+              mountPath: {{ .Values.externalServices.trustBundle.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- if eq .Values.licensing.controlPlane.mode "connected" }}
+            - name: control-plane-token
+              mountPath: {{ .Values.licensing.controlPlane.tokenSecret.mountPath }}
+              readOnly: true
+            {{- if or .Values.licensing.controlPlane.tls.caConfigMap .Values.licensing.controlPlane.tls.caSecret }}
+            - name: control-plane-tls-ca
+              mountPath: {{ .Values.licensing.controlPlane.tls.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- if .Values.licensing.controlPlane.tls.clientSecret }}
+            - name: control-plane-tls-client
+              mountPath: {{ .Values.licensing.controlPlane.tls.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+          env:
+            - name: HELP_ENABLED
+              value: {{ .Values.help.enabled | quote }}
+            - name: HELP_CURATOR_ENABLED
+              value: {{ .Values.help.curator.enabled | quote }}
+            - name: KEYCLOAK_ENABLED
+              value: {{ .Values.keycloak.enabled | quote }}
+            - name: IDENTITY_PROVISIONING_ENABLED
+              value: {{ .Values.auth.identityProvisioning.enabled | quote }}
+            - name: OBSERVABILITY_ENABLED
+              value: {{ .Values.observability.enabled | quote }}
+            - name: KEYCLOAK_REALM_PATH
+              value: {{ printf "/contract/keycloak-realm/%s" .Values.keycloak.realm.key | quote }}
+            - name: EVALUATION_ENABLED
+              value: {{ .Values.evaluation.enabled | quote }}
+            - name: ORCHESTRATOR_ENABLED
+              value: {{ .Values.orchestrator.enabled | quote }}
+            - name: POSTGRES_ENABLED
+              value: {{ .Values.postgres.enabled | quote }}
+            - name: REGISTRATION_ENABLED
+              value: {{ .Values.registration.enabled | quote }}
+            - name: REGISTRATION_LES_MTLS_ENABLED
+              value: {{ eq (.Values.registration.les.steadyStateAuthMode | lower) "mtls" | quote }}
+            - name: REGISTRATION_LES_INITIAL_LICENSE_ENABLED
+              value: {{ eq (.Values.registration.les.licenseHandoffMode | lower) "embedded_signed_license" | quote }}
+            - name: CONTROL_PLANE_MODE
+              value: {{ .Values.licensing.controlPlane.mode | quote }}
+            {{- if or .Values.externalServices.trustBundle.existingConfigMap .Values.externalServices.trustBundle.existingSecret }}
+            - name: TRUST_BUNDLE_PATH
+              value: {{ printf "%s/%s" .Values.externalServices.trustBundle.mountPath .Values.externalServices.trustBundle.key | quote }}
+            {{- end }}
+            {{- if eq .Values.licensing.controlPlane.mode "connected" }}
+            - name: CONTROL_PLANE_TOKEN_PATH
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tokenSecret.mountPath .Values.licensing.controlPlane.tokenSecret.fileName | quote }}
+            {{- if or .Values.licensing.controlPlane.tls.caConfigMap .Values.licensing.controlPlane.tls.caSecret }}
+            - name: CONTROL_PLANE_CA_PATH
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tls.mountPath .Values.licensing.controlPlane.tls.caKey | quote }}
+            {{- end }}
+            {{- if .Values.licensing.controlPlane.tls.clientSecret }}
+            - name: CONTROL_PLANE_CLIENT_CERT_PATH
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tls.mountPath .Values.licensing.controlPlane.tls.clientCertKey | quote }}
+            - name: CONTROL_PLANE_CLIENT_KEY_PATH
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tls.mountPath .Values.licensing.controlPlane.tls.clientKeyKey | quote }}
+            {{- end }}
+            {{- end }}
+      volumes:
+        - name: bootstrap-secret
+          secret:
+            secretName: {{ include "syncratic.bootstrapSecretName" . }}
+        - name: auth-runtime-secret
+          secret:
+            secretName: {{ include "syncratic.authRuntimeSecretName" . }}
+        {{- if .Values.auth.identityProvisioning.enabled }}
+        - name: identity-provisioning-secret
+          secret:
+            secretName: {{ include "syncratic.identityProvisioningSecretName" . }}
+        {{- end }}
+        {{- if .Values.keycloak.enabled }}
+        - name: keycloak-admin-secret
+          secret:
+            secretName: {{ include "syncratic.keycloakAdminSecretName" . }}
+        - name: keycloak-db-secret
+          secret:
+            secretName: {{ include "syncratic.keycloakDbSecretName" . }}
+        - name: keycloak-realm
+          {{- if .Values.keycloak.realm.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.keycloakRealmSecretName" . }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.keycloakRealmConfigMapName" . }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.help.enabled }}
+        - name: help-gateway-secret
+          secret:
+            secretName: {{ include "syncratic.helpGatewayTokenSecretName" . }}
+        {{- end }}
+        {{- if .Values.observability.enabled }}
+        - name: observability-grafana-admin-secret
+          secret:
+            secretName: {{ include "syncratic.observabilityGrafanaAdminSecretName" . }}
+        {{- end }}
+        {{- if .Values.evaluation.enabled }}
+        - name: evaluation-runtime-secret
+          secret:
+            secretName: {{ include "syncratic.evaluationRuntimeSecretName" . }}
+        {{- end }}
+        {{- if .Values.orchestrator.enabled }}
+        - name: orchestrator-runtime-secret
+          secret:
+            secretName: {{ include "syncratic.orchestratorRuntimeSecretName" . }}
+        {{- end }}
+        {{- if .Values.postgres.enabled }}
+        - name: postgres-auth-secret
+          secret:
+            secretName: {{ include "syncratic.postgresAuthSecretName" . }}
+        {{- end }}
+        - name: public-keys
+          {{- if .Values.licensing.publicKeys.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.licensingPublicKeysSecretName" . }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.licensingPublicKeysConfigMapName" . }}
+          {{- end }}
+        {{- if .Values.registration.enabled }}
+        - name: registration-public-keys
+          {{- if .Values.registration.publicKeys.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.registrationPublicKeysSecretName" . }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.registrationPublicKeysConfigMapName" . }}
+          {{- end }}
+        {{- if or .Values.registration.les.mtls.caSecret.existingSecret .Values.registration.les.mtls.caSecret.create }}
+        - name: registration-les-mtls-ca
+          secret:
+            secretName: {{ include "syncratic.registrationLesMtlsCaSecretName" . }}
+        {{- end }}
+        {{- if or .Values.registration.les.initialLicenseSecret.existingSecret .Values.registration.les.initialLicenseSecret.create }}
+        - name: registration-les-initial-license
+          secret:
+            secretName: {{ include "syncratic.registrationLesInitialLicenseSecretName" . }}
+        {{- end }}
+        {{- end }}
+        {{- if or .Values.externalServices.trustBundle.existingConfigMap .Values.externalServices.trustBundle.existingSecret }}
+        - name: external-trust-bundle
+          {{- if .Values.externalServices.trustBundle.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.externalTrustBundleSecretName" . }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.externalTrustBundleConfigMapName" . }}
+          {{- end }}
+        {{- end }}
+        {{- if eq .Values.licensing.controlPlane.mode "connected" }}
+        - name: control-plane-token
+          secret:
+            secretName: {{ required "licensing.controlPlane.tokenSecret.existingSecret is required when licensing.controlPlane.mode=connected" (include "syncratic.licensingControlPlaneTokenSecretName" . | trim) }}
+        {{- if or .Values.licensing.controlPlane.tls.caConfigMap .Values.licensing.controlPlane.tls.caSecret }}
+        - name: control-plane-tls-ca
+          {{- if .Values.licensing.controlPlane.tls.caSecret }}
+          secret:
+            secretName: {{ include "syncratic.licensingControlPlaneTlsCaSecretName" . | trim }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.licensingControlPlaneTlsConfigMapName" . | trim }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.licensing.controlPlane.tls.clientSecret }}
+        - name: control-plane-tls-client
+          secret:
+            secretName: {{ include "syncratic.licensingControlPlaneTlsClientSecretName" . | trim }}
+        {{- end }}
+        {{- end }}
+{{- end }}

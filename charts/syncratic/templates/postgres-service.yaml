@@ -1,0 +1,17 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.fullname" . }}-postgres
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.postgres.service.type }}
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.service.port }}
+      targetPort: postgres
+{{- end }}

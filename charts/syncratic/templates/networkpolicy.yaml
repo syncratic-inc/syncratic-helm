@@ -1,0 +1,602 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-default-deny-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-shared-egress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.networkPolicy.allowAllEgress }}
+    - {}
+    {{- else }}
+    {{- if .Values.networkPolicy.allowChartPodEgress }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+    {{- end }}
+    {{- if .Values.networkPolicy.dns.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dns.namespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dns.podLabels | nindent 14 }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+    {{- range .Values.networkPolicy.externalCidrs }}
+    - to:
+        - ipBlock:
+            cidr: {{ . | quote }}
+    {{- end }}
+    {{- with .Values.networkPolicy.extraEgressRules }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- end }}
+{{- if .Values.gateway.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-gateway-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+        {{- if or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels }}
+        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
+          {{- if .Values.networkPolicy.ingressController.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
+          {{- else }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- if .Values.frontend.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-frontend-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+        {{- if or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels }}
+        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
+          {{- if .Values.networkPolicy.ingressController.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
+          {{- else }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- if .Values.observability.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-observability-grafana-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: observability-grafana
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+        {{- if or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels }}
+        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
+          {{- if .Values.networkPolicy.ingressController.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
+          {{- else }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- if .Values.keycloak.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-keycloak-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keycloak
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+        {{- if and .Values.ingress.enabled (or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels) }}
+        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
+          {{- if .Values.networkPolicy.ingressController.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
+          {{- else }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- if .Values.help.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-help-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: help
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+        {{- if or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels }}
+        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
+          {{- if .Values.networkPolicy.ingressController.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
+          {{- else }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- if and .Values.help.enabled .Values.help.curator.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-help-curator-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: help-curator
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.licensing.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-licensing-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: licensing
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.registration.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-registration-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: registration
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.keycloak.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-keycloak-db-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keycloak-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: keycloak
+{{- end }}
+{{- if .Values.postgres.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-postgres-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.redis.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-redis-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.qdrant.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-qdrant-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: qdrant
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.neo4j.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-neo4j-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: neo4j
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.bgeEmbeddings.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-bge-embeddings-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: bge-embeddings
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.llmFast.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-llm-fast-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: llm-fast
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.llmDeep.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-llm-deep-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: llm-deep
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- if .Values.evaluation.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-evaluation-agent-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: evaluation-agent
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+        {{- if or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels }}
+        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
+          {{- if .Values.networkPolicy.ingressController.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
+          {{- else }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- if .Values.orchestrator.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-orchestrator-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: orchestrator
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+        {{- if or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels }}
+        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
+          {{- if .Values.networkPolicy.ingressController.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
+          {{- else }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- if .Values.transformer.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "syncratic.fullname" . }}-transformer-ingress
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: transformer
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "syncratic.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- end }}

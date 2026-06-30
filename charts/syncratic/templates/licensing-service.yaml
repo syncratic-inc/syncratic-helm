@@ -1,0 +1,17 @@
+{{- if .Values.licensing.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.fullname" . }}-licensing
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.licensing.service.type }}
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: licensing
+  ports:
+    - name: http
+      port: {{ .Values.licensing.service.port }}
+      targetPort: http
+{{- end }}

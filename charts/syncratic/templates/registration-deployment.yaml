@@ -1,0 +1,166 @@
+{{- if .Values.registration.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic.fullname" . }}-registration
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.registration.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: registration
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: registration
+      {{- with .Values.registration.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: registration
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.registration.image) }}"
+          imagePullPolicy: {{ .Values.registration.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.registration.service.port }}
+          env:
+            - name: REGISTRATION_DB_URL
+              value: sqlite:////var/lib/registration/registration.db
+            - name: REGISTRATION_PUBLIC_KEYS_PATH
+              value: /app/keys/public_keys.json
+            - name: REGISTRATION_ALLOWED_BOOTSTRAP_KEY_IDS
+              value: {{ .Values.registration.allowedBootstrapKeyIds | quote }}
+            - name: REGISTRATION_BOOTSTRAP_ACTIVE_KEY_ID
+              value: {{ .Values.registration.bootstrapAuthority.activeKeyId | quote }}
+            - name: REGISTRATION_BOOTSTRAP_ISSUER_NAME
+              value: {{ .Values.registration.bootstrapAuthority.issuerName | quote }}
+            - name: REGISTRATION_BOOTSTRAP_TOKEN_MAX_TTL_SECONDS
+              value: {{ .Values.registration.bootstrapAuthority.tokenMaxTtlSeconds | quote }}
+            - name: REGISTRATION_INSTALL_TYPE
+              value: {{ .Values.registration.installType | quote }}
+            - name: REGISTRATION_SECRET_SET_NAME
+              value: {{ .Values.registration.secretSetName | quote }}
+            - name: REGISTRATION_SIGNER_CALLER_ID
+              value: {{ .Values.registration.signerCallerId | quote }}
+            {{- if or .Values.registration.bootstrapAuthority.existingSecret .Values.registration.bootstrapAuthority.create }}
+            - name: REGISTRATION_BOOTSTRAP_PRIVATE_KEYS_PATH
+              value: /app/bootstrap-private-keys
+            - name: REGISTRATION_BOOTSTRAP_PRIVATE_KEY_FILE
+              value: {{ printf "/app/bootstrap-private-keys/%s" .Values.registration.bootstrapAuthority.keys.privateKey | quote }}
+            {{- end }}
+            - name: REGISTRATION_LES_INSTALL_TYPE
+              value: {{ .Values.registration.les.installType | quote }}
+            - name: REGISTRATION_LES_SECRET_SET_NAME
+              value: {{ .Values.registration.les.secretSetName | quote }}
+            - name: REGISTRATION_LES_BOOTSTRAP_CALLER_ID
+              value: {{ .Values.registration.les.bootstrapCallerId | quote }}
+            - name: REGISTRATION_LES_CONTROL_PLANE_URL
+              value: {{ .Values.registration.les.controlPlane.url | quote }}
+            {{- if .Values.registration.les.controlPlane.caPem }}
+            - name: REGISTRATION_LES_CONTROL_PLANE_CA_PEM
+              value: {{ .Values.registration.les.controlPlane.caPem | quote }}
+            {{- end }}
+            - name: REGISTRATION_LES_CONTROL_PLANE_LICENSE_STATUS_PATH
+              value: {{ .Values.registration.les.controlPlane.licenseStatusPath | quote }}
+            - name: REGISTRATION_LES_CONTROL_PLANE_UPDATE_DISCOVERY_PATH
+              value: {{ .Values.registration.les.controlPlane.updateDiscoveryPath | quote }}
+            - name: REGISTRATION_LES_CONTROL_PLANE_HEARTBEAT_PATH
+              value: {{ .Values.registration.les.controlPlane.heartbeatPath | quote }}
+            - name: REGISTRATION_LES_BOOTSTRAP_TOKEN_TTL_SECONDS
+              value: {{ .Values.registration.les.bootstrapTokenTtlSeconds | quote }}
+            - name: REGISTRATION_LES_STEADY_STATE_AUTH_MODE
+              value: {{ .Values.registration.les.steadyStateAuthMode | quote }}
+            - name: REGISTRATION_LES_LICENSE_HANDOFF_MODE
+              value: {{ .Values.registration.les.licenseHandoffMode | quote }}
+            - name: REGISTRATION_LES_LOCAL_INSTALL_ENDPOINT
+              value: {{ .Values.registration.les.localInstallEndpoint | quote }}
+            - name: REGISTRATION_LES_MTLS_CLIENT_VALIDITY_DAYS
+              value: {{ .Values.registration.les.mtls.clientValidityDays | quote }}
+            - name: REGISTRATION_LES_MTLS_CLIENT_ORG
+              value: {{ .Values.registration.les.mtls.clientOrg | quote }}
+            - name: REGISTRATION_LES_MTLS_CLIENT_OU
+              value: {{ .Values.registration.les.mtls.clientOu | quote }}
+            {{- if or .Values.registration.les.mtls.caSecret.existingSecret .Values.registration.les.mtls.caSecret.create }}
+            - name: REGISTRATION_LES_MTLS_CA_CERT_PATH
+              value: {{ printf "/app/les-mtls-ca/%s" .Values.registration.les.mtls.caSecret.keys.cert | quote }}
+            - name: REGISTRATION_LES_MTLS_CA_KEY_PATH
+              value: {{ printf "/app/les-mtls-ca/%s" .Values.registration.les.mtls.caSecret.keys.key | quote }}
+            {{- end }}
+            {{- if or .Values.registration.les.initialLicenseSecret.existingSecret .Values.registration.les.initialLicenseSecret.create }}
+            - name: REGISTRATION_LES_INITIAL_LICENSE_FILE
+              value: {{ printf "/app/les-initial-license/%s" .Values.registration.les.initialLicenseSecret.keys.licenseJson | quote }}
+            {{- end }}
+            {{- if or .Values.registration.adminTokenSecret.existingSecret .Values.registration.adminTokenSecret.create }}
+            - name: REGISTRATION_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.registrationAdminTokenSecretName" . }}
+                  key: {{ .Values.registration.adminTokenSecret.keys.adminToken }}
+            {{- end }}
+            {{- include "syncratic.renderMapEnv" (dict "root" . "values" .Values.registration.extraEnv) | nindent 12 }}
+          volumeMounts:
+            - name: registration-data
+              mountPath: /var/lib/registration
+            - name: registration-public-keys
+              mountPath: /app/keys
+              readOnly: true
+            {{- if or .Values.registration.bootstrapAuthority.existingSecret .Values.registration.bootstrapAuthority.create }}
+            - name: registration-bootstrap-authority
+              mountPath: /app/bootstrap-private-keys
+              readOnly: true
+            {{- end }}
+            {{- if or .Values.registration.les.mtls.caSecret.existingSecret .Values.registration.les.mtls.caSecret.create }}
+            - name: registration-les-mtls-ca
+              mountPath: /app/les-mtls-ca
+              readOnly: true
+            {{- end }}
+            {{- if or .Values.registration.les.initialLicenseSecret.existingSecret .Values.registration.les.initialLicenseSecret.create }}
+            - name: registration-les-initial-license
+              mountPath: /app/les-initial-license
+              readOnly: true
+            {{- end }}
+          startupProbe:
+            {{- toYaml .Values.registration.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.registration.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.registration.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.registration.resources | nindent 12 }}
+      volumes:
+        - name: registration-data
+          persistentVolumeClaim:
+            claimName: {{ default (include "syncratic.registrationDataPvcName" .) .Values.registration.persistence.existingClaim }}
+        - name: registration-public-keys
+          {{- if .Values.registration.publicKeys.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.registrationPublicKeysSecretName" . }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.registrationPublicKeysConfigMapName" . }}
+          {{- end }}
+        {{- if or .Values.registration.bootstrapAuthority.existingSecret .Values.registration.bootstrapAuthority.create }}
+        - name: registration-bootstrap-authority
+          secret:
+            secretName: {{ include "syncratic.registrationBootstrapAuthoritySecretName" . }}
+        {{- end }}
+        {{- if or .Values.registration.les.mtls.caSecret.existingSecret .Values.registration.les.mtls.caSecret.create }}
+        - name: registration-les-mtls-ca
+          secret:
+            secretName: {{ include "syncratic.registrationLesMtlsCaSecretName" . }}
+        {{- end }}
+        {{- if or .Values.registration.les.initialLicenseSecret.existingSecret .Values.registration.les.initialLicenseSecret.create }}
+        - name: registration-les-initial-license
+          secret:
+            secretName: {{ include "syncratic.registrationLesInitialLicenseSecretName" . }}
+        {{- end }}
+{{- end }}

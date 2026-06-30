@@ -1,0 +1,55 @@
+{{- if .Values.runtimeNodeAgent.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "syncratic.fullname" . }}-runtime-node-agent
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: runtime-node-agent
+  updateStrategy:
+    {{- toYaml .Values.runtimeNodeAgent.updateStrategy | nindent 4 }}
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: runtime-node-agent
+      {{- with .Values.runtimeNodeAgent.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: runtime-node-agent
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.runtimeNodeAgent.image) }}"
+          imagePullPolicy: {{ .Values.runtimeNodeAgent.image.pullPolicy }}
+          command:
+            - python
+            - scripts/run_node_seat_agent.py
+          env:
+            - name: ENTITLEMENT_SERVICE_URL
+              value: http://{{ include "syncratic.fullname" . }}-licensing:{{ .Values.licensing.service.port }}
+            - name: ENTITLEMENT_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.bootstrapSecretName" . }}
+                  key: ENTITLEMENT_SERVICE_TOKEN
+            - name: ENTITLEMENT_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- include "syncratic.renderMapEnv" (dict "root" . "values" .Values.runtimeNodeAgent.extraEnv) | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.runtimeNodeAgent.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.runtimeNodeAgent.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.runtimeNodeAgent.resources | nindent 12 }}
+{{- end }}

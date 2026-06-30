@@ -1,0 +1,33 @@
+auth:
+  runtimeSecret:
+    create: false
+    existingSecret: syncratic-auth-runtime
+
+keycloak:
+  adminSecret:
+    create: false
+    existingSecret: syncratic-keycloak-admin
+  database:
+    create: false
+    existingSecret: syncratic-keycloak-db
+  realm:
+    create: false
+    existingConfigMap: syncratic-keycloak-realm
+
+observability:
+  enabled: true
+  path: /observability
+  grafana:
+    adminSecret:
+      create: false
+      existingSecret: syncratic-observability-grafana-admin
+    oauth:
+      clientId: grafana-observability
+      roleAttributePath: "contains(roles[*], 'super_admin') && 'Admin' || contains(roles[*], 'syncratic-admin') && 'Admin' || contains(roles[*], 'admin') && 'Admin' || 'None'"
+    datasources:
+      prometheus:
+        enabled: false
+        url: ""
+    dashboards:
+      providerEnabled: true
+      bundledEnabled: true

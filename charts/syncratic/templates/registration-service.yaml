@@ -1,0 +1,17 @@
+{{- if .Values.registration.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.fullname" . }}-registration
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.registration.service.type }}
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: registration
+  ports:
+    - name: http
+      port: {{ .Values.registration.service.port }}
+      targetPort: http
+{{- end }}

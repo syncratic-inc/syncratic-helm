@@ -1,0 +1,92 @@
+{{- if and .Values.keycloak.enabled .Values.auth.bootstrapSmtp.enabled .Values.auth.bootstrapSmtp.syncKeycloak }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "syncratic.fullname" . }}-keycloak-smtp-reconcile
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak-smtp-reconcile
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: keycloak-smtp-reconcile
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: keycloak-smtp-reconcile
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.keycloak.image) }}"
+          imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              for i in $(seq 1 60); do
+                if /opt/keycloak/bin/kcadm.sh config credentials                   --server "$KEYCLOAK_ADMIN_SERVER"                   --realm master                   --user "$KEYCLOAK_ADMIN"                   --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null 2>&1; then
+                  break
+                fi
+                if [ "$i" = "60" ]; then
+                  echo "Keycloak admin API was not ready for SMTP reconciliation" >&2
+                  exit 1
+                fi
+                sleep 5
+              done
+              smtp_json_escape() {
+                printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+              }
+              SMTP_HOST_ESCAPED="$(smtp_json_escape "$SMTP_HOST")"
+              SMTP_PORT_ESCAPED="$(smtp_json_escape "$SMTP_PORT")"
+              SMTP_FROM_EMAIL_ESCAPED="$(smtp_json_escape "$SMTP_FROM_EMAIL")"
+              SMTP_FROM_NAME_ESCAPED="$(smtp_json_escape "$SMTP_FROM_NAME")"
+              SMTP_USERNAME_ESCAPED="$(smtp_json_escape "${SMTP_USERNAME:-}")"
+              SMTP_PASSWORD_ESCAPED="$(smtp_json_escape "${SMTP_PASSWORD:-}")"
+              if [ -n "${SMTP_USERNAME:-}" ] && [ -n "${SMTP_PASSWORD:-}" ]; then
+                SMTP_SERVER_JSON="{\"host\":\"$SMTP_HOST_ESCAPED\",\"port\":\"$SMTP_PORT_ESCAPED\",\"from\":\"$SMTP_FROM_EMAIL_ESCAPED\",\"fromDisplayName\":\"$SMTP_FROM_NAME_ESCAPED\",\"starttls\":\"$SMTP_USE_STARTTLS\",\"ssl\":\"$SMTP_USE_SSL\",\"auth\":\"true\",\"user\":\"$SMTP_USERNAME_ESCAPED\",\"password\":\"$SMTP_PASSWORD_ESCAPED\"}"
+              else
+                SMTP_SERVER_JSON="{\"host\":\"$SMTP_HOST_ESCAPED\",\"port\":\"$SMTP_PORT_ESCAPED\",\"from\":\"$SMTP_FROM_EMAIL_ESCAPED\",\"fromDisplayName\":\"$SMTP_FROM_NAME_ESCAPED\",\"starttls\":\"$SMTP_USE_STARTTLS\",\"ssl\":\"$SMTP_USE_SSL\",\"auth\":\"false\"}"
+              fi
+              /opt/keycloak/bin/kcadm.sh update "realms/$KEYCLOAK_REALM" -s "smtpServer=$SMTP_SERVER_JSON"
+              echo "Keycloak SMTP reconciled for realm $KEYCLOAK_REALM via $SMTP_HOST:$SMTP_PORT"
+          env:
+            - name: KEYCLOAK_ADMIN_SERVER
+              value: {{ include "syncratic.keycloakInternalUrl" . | quote }}
+            - name: KEYCLOAK_REALM
+              value: {{ .Values.externalServices.keycloakRealm | quote }}
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakAdminSecretName" . }}
+                  key: {{ .Values.keycloak.adminSecret.keys.username }}
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakAdminSecretName" . }}
+                  key: {{ .Values.keycloak.adminSecret.keys.password }}
+            - name: SMTP_HOST
+              value: {{ .Values.auth.bootstrapSmtp.host | quote }}
+            - name: SMTP_PORT
+              value: {{ .Values.auth.bootstrapSmtp.port | quote }}
+            - name: SMTP_USERNAME
+              value: {{ .Values.auth.bootstrapSmtp.username | quote }}
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.bootstrapSmtpSecretName" . }}
+                  key: {{ .Values.auth.bootstrapSmtp.passwordSecret.key }}
+            - name: SMTP_USE_STARTTLS
+              value: {{ .Values.auth.bootstrapSmtp.useStarttls | quote }}
+            - name: SMTP_USE_SSL
+              value: {{ .Values.auth.bootstrapSmtp.useSsl | quote }}
+            - name: SMTP_FROM_EMAIL
+              value: {{ .Values.auth.bootstrapSmtp.fromEmail | quote }}
+            - name: SMTP_FROM_NAME
+              value: {{ .Values.auth.bootstrapSmtp.fromName | quote }}
+{{- end }}

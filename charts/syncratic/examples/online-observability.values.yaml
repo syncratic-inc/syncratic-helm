@@ -1,0 +1,97 @@
+global:
+  deliveryMode: online_registry
+  firstPartyImageRegistry: ghcr.io/lukebabs
+  imagePullSecrets:
+    - name: ghcr-pull
+
+ingress:
+  enabled: true
+  className: nginx
+  publicScheme: https
+  frontendHost: portal.syncratic.co
+  gatewayHost: api.syncratic.co
+  authHost: auth.syncratic.co
+  tlsPolicy:
+    mode: cluster_managed
+    requireTls: true
+    requireIngressClass: true
+    requireHostsCovered: true
+  tls:
+    - secretName: syncratic-public-tls
+      hosts:
+        - portal.syncratic.co
+        - api.syncratic.co
+        - auth.syncratic.co
+
+auth:
+  runtimeSecret:
+    existingSecret: syncratic-auth-runtime
+
+gateway:
+  image:
+    repository: syncratic/gateway
+    tag: "1.0.0"
+
+runtimeNodeAgent:
+  image:
+    repository: syncratic/gateway
+    tag: "1.0.0"
+
+runtimeWorkers:
+  image:
+    repository: syncratic/gateway
+    tag: "1.0.0"
+
+frontend:
+  image:
+    repository: syncratic/frontend
+    tag: "1.0.0"
+
+help:
+  image:
+    repository: syncratic/help-service
+    tag: "1.0.0"
+
+licensing:
+  image:
+    repository: syncratic/licensing-service
+    tag: "1.0.0"
+
+registration:
+  image:
+    repository: syncratic/registration-service
+    tag: "1.0.0"
+
+keycloak:
+  enabled: true
+  realm:
+    existingConfigMap: syncratic-keycloak-realm
+  adminSecret:
+    existingSecret: syncratic-keycloak-admin
+  database:
+    existingSecret: syncratic-keycloak-db
+
+observability:
+  enabled: true
+  path: /observability
+  grafana:
+    adminSecret:
+      existingSecret: syncratic-observability-grafana-admin
+    oauth:
+      clientId: grafana-observability
+    datasources:
+      prometheus:
+        enabled: true
+        url: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        isDefault: true
+    dashboards:
+      providerEnabled: true
+      bundledEnabled: true
+
+networkPolicy:
+  ingressController:
+    enabled: true
+    namespaceLabels:
+      kubernetes.io/metadata.name: ingress-nginx
+    podLabels:
+      app.kubernetes.io/name: ingress-nginx

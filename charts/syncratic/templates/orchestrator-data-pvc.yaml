@@ -1,0 +1,17 @@
+{{- if and .Values.orchestrator.enabled (not .Values.orchestrator.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "syncratic.orchestratorDataPvcName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.orchestrator.persistence.size }}
+  {{- if .Values.orchestrator.persistence.storageClassName }}
+  storageClassName: {{ .Values.orchestrator.persistence.storageClassName }}
+  {{- end }}
+{{- end }}

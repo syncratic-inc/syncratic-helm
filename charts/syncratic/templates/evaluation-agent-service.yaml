@@ -1,0 +1,17 @@
+{{- if .Values.evaluation.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.fullname" . }}-evaluation-agent
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.evaluation.service.type }}
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: evaluation-agent
+  ports:
+    - name: http
+      port: {{ .Values.evaluation.service.port }}
+      targetPort: http
+{{- end }}

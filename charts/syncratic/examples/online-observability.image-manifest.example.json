@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "kind": "syncratic_image_release_manifest",
+  "release_id": "replace-with-release-id",
+  "images": {
+    "gateway": "ghcr.io/lukebabs/syncratic/gateway@sha256:replace-with-gateway-digest",
+    "frontend": "ghcr.io/lukebabs/syncratic/frontend@sha256:replace-with-frontend-digest",
+    "help": "ghcr.io/lukebabs/syncratic/help-service@sha256:replace-with-help-digest",
+    "licensing": "ghcr.io/lukebabs/syncratic/licensing-service@sha256:replace-with-licensing-digest",
+    "registration": "ghcr.io/lukebabs/syncratic/registration-service@sha256:replace-with-registration-digest"
+  }
+}

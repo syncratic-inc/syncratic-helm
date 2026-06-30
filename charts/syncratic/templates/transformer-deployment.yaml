@@ -1,0 +1,47 @@
+{{- if .Values.transformer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic.fullname" . }}-transformer
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.transformer.autoscaling.enabled }}
+  replicas: {{ .Values.transformer.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: transformer
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: transformer
+      {{- with .Values.transformer.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: transformer
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.transformer.image) }}"
+          imagePullPolicy: {{ .Values.transformer.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.transformer.service.port }}
+          env:
+            {{- include "syncratic.renderMapEnv" (dict "root" . "values" .Values.transformer.extraEnv) | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.transformer.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.transformer.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.transformer.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.transformer.resources | nindent 12 }}
+{{- end }}

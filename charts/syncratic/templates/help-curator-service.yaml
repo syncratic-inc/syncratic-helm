@@ -1,0 +1,17 @@
+{{- if and .Values.help.enabled .Values.help.curator.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.fullname" . }}-help-curator
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.help.curator.service.type }}
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: help-curator
+  ports:
+    - name: http
+      port: {{ .Values.help.curator.service.port }}
+      targetPort: http
+{{- end }}

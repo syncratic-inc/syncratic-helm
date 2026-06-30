@@ -1,0 +1,17 @@
+{{- if .Values.observability.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.observabilityGrafanaName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.observability.grafana.service.type }}
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: observability-grafana
+  ports:
+    - name: http
+      port: {{ .Values.observability.grafana.service.port }}
+      targetPort: http
+{{- end }}

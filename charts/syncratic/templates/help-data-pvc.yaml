@@ -1,0 +1,17 @@
+{{- if and .Values.help.enabled (not .Values.help.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "syncratic.helpDataPvcName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.help.persistence.size }}
+  {{- if .Values.help.persistence.storageClassName }}
+  storageClassName: {{ .Values.help.persistence.storageClassName }}
+  {{- end }}
+{{- end }}

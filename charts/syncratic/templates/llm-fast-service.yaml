@@ -1,0 +1,17 @@
+{{- if .Values.llmFast.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.fullname" . }}-llm-fast
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.llmFast.service.type }}
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: llm-fast
+  ports:
+    - name: http
+      port: {{ .Values.llmFast.service.port }}
+      targetPort: http
+{{- end }}

@@ -1,0 +1,17 @@
+{{- if and .Values.evaluation.enabled (not .Values.evaluation.persistence.managedSuites.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "syncratic.evaluationManagedSuitesPvcName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.evaluation.persistence.managedSuites.size }}
+  {{- if .Values.evaluation.persistence.managedSuites.storageClassName }}
+  storageClassName: {{ .Values.evaluation.persistence.managedSuites.storageClassName }}
+  {{- end }}
+{{- end }}

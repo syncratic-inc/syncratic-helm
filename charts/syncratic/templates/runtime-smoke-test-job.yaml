@@ -1,0 +1,103 @@
+{{- if .Values.runtimeTests.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "syncratic.fullname" . }}-runtime-smoke-test
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: runtime-smoke-test
+    spec:
+      restartPolicy: Never
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: runtime-smoke-test
+          image: "{{ include "syncratic.testImageRef" (dict "Values" .Values "test" .Values.runtimeTests) }}"
+          imagePullPolicy: {{ include "syncratic.testImagePullPolicy" (dict "Values" .Values "test" .Values.runtimeTests) }}
+          command:
+            - python
+            - -c
+            - |
+              import os
+              import socket
+              import sys
+              import urllib.request
+
+              targets = [
+              {{- range $name, $target := .Values.runtimeTests.httpTargets }}
+              {{- if eq (lower (tpl (printf "%v" $target.enabled) $)) "true" }}
+                  {
+                      "name": {{ $name | quote }},
+                      "url": os.environ.get({{ printf "RUNTIME_%s_URL" ($name | upper) | quote }}, ""),
+                  },
+              {{- end }}
+              {{- end }}
+              ]
+
+              tcp_targets = [
+              {{- range $name, $target := .Values.runtimeTests.tcpTargets }}
+              {{- if eq (lower (tpl (printf "%v" $target.enabled) $)) "true" }}
+                  {
+                      "name": {{ $name | quote }},
+                      "host": os.environ.get({{ printf "RUNTIME_TCP_%s_HOST" ($name | upper) | quote }}, ""),
+                      "port": int(os.environ.get({{ printf "RUNTIME_TCP_%s_PORT" ($name | upper) | quote }}, "0")),
+                  },
+              {{- end }}
+              {{- end }}
+              ]
+
+              failures = []
+              for target in targets:
+                  if not target["url"]:
+                      print(f'{target["name"]}:skipped')
+                      continue
+                  try:
+                      with urllib.request.urlopen(target["url"], timeout=10) as response:
+                          status = getattr(response, "status", None) or response.getcode()
+                          if status != 200:
+                              failures.append(f'{target["name"]}:{target["url"]}:status_{status}')
+                          else:
+                              print(f'{target["name"]}:ok:{target["url"]}')
+                  except Exception as exc:
+                      failures.append(f'{target["name"]}:{target["url"]}:{type(exc).__name__}:{exc}')
+
+              for target in tcp_targets:
+                  if not target["host"] or not target["port"]:
+                      print(f'{target["name"]}:skipped_tcp')
+                      continue
+                  try:
+                      with socket.create_connection((target["host"], target["port"]), timeout=5):
+                          print(f'{target["name"]}:ok_tcp:{target["host"]}:{target["port"]}')
+                  except OSError as exc:
+                      failures.append(f'{target["name"]}:{target["host"]}:{target["port"]}:{exc}')
+
+              if failures:
+                  for failure in failures:
+                      print(f'FAILED:{failure}', file=sys.stderr)
+                  raise SystemExit(1)
+          env:
+          {{- range $name, $target := .Values.runtimeTests.httpTargets }}
+          {{- if eq (lower (tpl (printf "%v" $target.enabled) $)) "true" }}
+            - name: {{ printf "RUNTIME_%s_URL" ($name | upper) }}
+              value: {{ tpl (printf "%v" $target.url) $ | quote }}
+          {{- end }}
+          {{- end }}
+          {{- range $name, $target := .Values.runtimeTests.tcpTargets }}
+          {{- if eq (lower (tpl (printf "%v" $target.enabled) $)) "true" }}
+            - name: {{ printf "RUNTIME_TCP_%s_HOST" ($name | upper) }}
+              value: {{ tpl (printf "%v" $target.host) $ | quote }}
+            - name: {{ printf "RUNTIME_TCP_%s_PORT" ($name | upper) }}
+              value: {{ tpl (printf "%v" $target.port) $ | quote }}
+          {{- end }}
+          {{- end }}
+{{- end }}

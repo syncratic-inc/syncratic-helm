@@ -1,0 +1,77 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "syncratic.keycloakDbServiceName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "syncratic.keycloakDbServiceName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keycloak-db
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: keycloak-db
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postgres
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.keycloak.database.image) }}"
+          imagePullPolicy: {{ .Values.keycloak.database.image.pullPolicy }}
+          env:
+            - name: POSTGRES_DB
+              value: keycloak
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakDbSecretName" . }}
+                  key: {{ .Values.keycloak.database.keys.username }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakDbSecretName" . }}
+                  key: {{ .Values.keycloak.database.keys.password }}
+          ports:
+            - name: postgres
+              containerPort: {{ .Values.keycloak.database.service.port }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          startupProbe:
+            tcpSocket:
+              port: postgres
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 15
+            periodSeconds: 15
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.keycloak.database.persistence.size }}
+        {{- if .Values.keycloak.database.persistence.storageClassName }}
+        storageClassName: {{ .Values.keycloak.database.persistence.storageClassName }}
+        {{- end }}
+{{- end }}

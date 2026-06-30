@@ -1,0 +1,35 @@
+{{- if and .Values.licensing.enabled .Values.licensing.publicKeys.create (not .Values.licensing.publicKeys.existingConfigMap) (not .Values.licensing.publicKeys.existingSecret) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "syncratic.licensingPublicKeysConfigMapName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+data:
+  public_keys.json: |
+{{ .Values.licensing.publicKeys.json | indent 4 }}
+{{- end }}
+{{- if and .Values.registration.enabled .Values.registration.publicKeys.create (not .Values.registration.publicKeys.existingConfigMap) (not .Values.registration.publicKeys.existingSecret) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "syncratic.registrationPublicKeysConfigMapName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+data:
+  public_keys.json: |
+{{ .Values.registration.publicKeys.json | indent 4 }}
+{{- end }}
+{{- if and .Values.keycloak.enabled .Values.keycloak.realm.create (not .Values.keycloak.realm.existingConfigMap) (not .Values.keycloak.realm.existingSecret) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "syncratic.keycloakRealmConfigMapName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+data:
+  {{ .Values.keycloak.realm.key }}: |
+{{ .Values.keycloak.realm.json | indent 4 }}
+{{- end }}

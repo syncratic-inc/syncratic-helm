@@ -1,0 +1,59 @@
+{{- if .Values.llmDeep.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic.fullname" . }}-llm-deep
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: llm-deep
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: llm-deep
+      {{- with .Values.llmDeep.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: llm-deep
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.llmDeep.image) }}"
+          imagePullPolicy: {{ .Values.llmDeep.image.pullPolicy }}
+          args:
+            - {{ .Values.llmDeep.model.name | quote }}
+            - --served-model-name
+            - {{ .Values.llmDeep.model.servedModelName | quote }}
+            - --dtype
+            - {{ .Values.llmDeep.model.dtype | quote }}
+            - --gpu-memory-utilization
+            - {{ .Values.llmDeep.model.gpuMemoryUtilization | quote }}
+            - --max-model-len
+            - {{ .Values.llmDeep.model.maxModelLen | quote }}
+            {{- range .Values.llmDeep.args }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.llmDeep.service.port }}
+          env:
+            - name: HF_HOME
+              value: {{ .Values.llmDeep.env.hfHome | quote }}
+          startupProbe:
+            {{- toYaml .Values.llmDeep.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.llmDeep.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.llmDeep.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.llmDeep.resources | nindent 12 }}
+{{- end }}

@@ -1,0 +1,145 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic.keycloakServiceName" . }}
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keycloak
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: keycloak
+      {{- with .Values.keycloak.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.keycloak.theme.enabled }}
+      initContainers:
+        - name: keycloak-theme-init
+          image: "{{ .Values.keycloak.theme.initImage.repository }}:{{ .Values.keycloak.theme.initImage.tag }}"
+          imagePullPolicy: {{ .Values.keycloak.theme.initImage.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              mkdir -p /theme-work/login/messages
+              mkdir -p /theme-work/login/resources/css
+              mkdir -p /theme-work/login/resources/img
+              mkdir -p /theme-work/login/resources/js
+              mkdir -p /theme-work/email/html
+              mkdir -p /theme-work/email/messages
+              mkdir -p /theme-work/email/text
+              cp /theme-source/login-login.ftl /theme-work/login/login.ftl
+              cp /theme-source/login-login-update-password.ftl /theme-work/login/login-update-password.ftl
+              cp /theme-source/login-error.ftl /theme-work/login/error.ftl
+              cp /theme-source/login-info.ftl /theme-work/login/info.ftl
+              cp /theme-source/login-theme.properties /theme-work/login/theme.properties
+              cp /theme-source/login-messages-en.properties /theme-work/login/messages/messages_en.properties
+              cp /theme-source/login-css-syncratic.css /theme-work/login/resources/css/syncratic.css
+              cp /theme-source/login-js-passwordVisibility.js /theme-work/login/resources/js/passwordVisibility.js
+              cp /theme-source/login-js-authChecker.js /theme-work/login/resources/js/authChecker.js
+              cp /theme-source/login-js-userProfile.js /theme-work/login/resources/js/userProfile.js
+              cp /theme-source/login-img-logo.svg /theme-work/login/resources/img/logo.svg
+              cp /theme-source/email-text-executeActions.ftl /theme-work/email/text/executeActions.ftl
+              cp /theme-source/email-html-template.ftl /theme-work/email/html/template.ftl
+              cp /theme-source/email-html-executeActions.ftl /theme-work/email/html/executeActions.ftl
+              cp /theme-source/email-theme.properties /theme-work/email/theme.properties
+              cp /theme-source/email-messages-en.properties /theme-work/email/messages/messages_en.properties
+          volumeMounts:
+            - name: keycloak-theme-source
+              mountPath: /theme-source
+              readOnly: true
+            - name: keycloak-theme
+              mountPath: /theme-work
+      {{- end }}
+      containers:
+        - name: keycloak
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.keycloak.image) }}"
+          imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+          args:
+            - start
+            - --import-realm
+          env:
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY
+              value: {{ .Values.keycloak.proxyMode | quote }}
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME
+              value: {{ include "syncratic.publicAuthBaseUrl" . | quote }}
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: {{ printf "jdbc:postgresql://%s:%v/keycloak" (include "syncratic.keycloakDbServiceName" .) .Values.keycloak.database.service.port | quote }}
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakDbSecretName" . }}
+                  key: {{ .Values.keycloak.database.keys.username }}
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakDbSecretName" . }}
+                  key: {{ .Values.keycloak.database.keys.password }}
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakAdminSecretName" . }}
+                  key: {{ .Values.keycloak.adminSecret.keys.username }}
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.keycloakAdminSecretName" . }}
+                  key: {{ .Values.keycloak.adminSecret.keys.password }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.keycloak.service.port }}
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+            {{- if .Values.keycloak.theme.enabled }}
+            - name: keycloak-theme
+              mountPath: /opt/keycloak/themes/{{ .Values.keycloak.theme.name }}
+              readOnly: true
+            {{- end }}
+          startupProbe:
+            {{- tpl (toYaml .Values.keycloak.startupProbe) . | nindent 12 }}
+          readinessProbe:
+            {{- tpl (toYaml .Values.keycloak.readinessProbe) . | nindent 12 }}
+          livenessProbe:
+            {{- tpl (toYaml .Values.keycloak.livenessProbe) . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.keycloak.resources | nindent 12 }}
+      volumes:
+        - name: realm
+          {{- if .Values.keycloak.realm.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.keycloakRealmSecretName" . }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.keycloakRealmConfigMapName" . }}
+          {{- end }}
+        {{- if .Values.keycloak.theme.enabled }}
+        - name: keycloak-theme-source
+          configMap:
+            name: {{ include "syncratic.keycloakThemeConfigMapName" . }}
+        - name: keycloak-theme
+          emptyDir: {}
+        {{- end }}
+{{- end }}

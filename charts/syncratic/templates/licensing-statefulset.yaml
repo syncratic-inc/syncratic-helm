@@ -1,0 +1,146 @@
+{{- if .Values.licensing.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "syncratic.fullname" . }}-licensing
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "syncratic.fullname" . }}-licensing
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: licensing
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: licensing
+      {{- with .Values.licensing.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: licensing
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.licensing.image) }}"
+          imagePullPolicy: {{ .Values.licensing.image.pullPolicy }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          ports:
+            - name: http
+              containerPort: {{ .Values.licensing.service.port }}
+          env:
+            - name: LES_DEPLOYMENT_ID
+              value: {{ .Values.global.deploymentId | quote }}
+            - name: LES_PUBLIC_KEYS_PATH
+              value: /app/keys/public_keys.json
+            - name: LES_DB_URL
+              value: sqlite:////var/lib/licensing/licensing.db
+            - name: LES_CONNECTIVITY_MODE
+              value: {{ .Values.licensing.controlPlane.mode | quote }}
+            - name: LES_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.bootstrapSecretName" . }}
+                  key: ENTITLEMENT_SERVICE_TOKEN
+            {{- if eq .Values.licensing.controlPlane.mode "connected" }}
+            - name: LES_CONTROL_PLANE_URL
+              value: {{ required "licensing.controlPlane.url is required when licensing.controlPlane.mode=connected" .Values.licensing.controlPlane.url | quote }}
+            - name: LES_CONTROL_PLANE_LICENSE_STATUS_PATH
+              value: {{ .Values.licensing.controlPlane.licenseStatusPath | quote }}
+            - name: LES_CONTROL_PLANE_UPDATE_DISCOVERY_PATH
+              value: {{ .Values.licensing.controlPlane.updateDiscoveryPath | quote }}
+            - name: LES_CONTROL_PLANE_HEARTBEAT_PATH
+              value: {{ .Values.licensing.controlPlane.heartbeatPath | quote }}
+            - name: LES_CONTROL_PLANE_TOKEN_FILE
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tokenSecret.mountPath .Values.licensing.controlPlane.tokenSecret.fileName | quote }}
+            {{- if or .Values.licensing.controlPlane.tls.caConfigMap .Values.licensing.controlPlane.tls.caSecret }}
+            - name: LES_CONTROL_PLANE_TLS_CA_CERT_PATH
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tls.mountPath .Values.licensing.controlPlane.tls.caKey | quote }}
+            {{- end }}
+            {{- if .Values.licensing.controlPlane.tls.clientSecret }}
+            - name: LES_CONTROL_PLANE_TLS_CLIENT_CERT_PATH
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tls.mountPath .Values.licensing.controlPlane.tls.clientCertKey | quote }}
+            - name: LES_CONTROL_PLANE_TLS_CLIENT_KEY_PATH
+              value: {{ printf "%s/%s" .Values.licensing.controlPlane.tls.mountPath .Values.licensing.controlPlane.tls.clientKeyKey | quote }}
+            {{- end }}
+            {{- end }}
+            {{- include "syncratic.renderMapEnv" (dict "root" . "values" .Values.licensing.extraEnv) | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/licensing
+            - name: public-keys
+              mountPath: /app/keys
+              readOnly: true
+            {{- if eq .Values.licensing.controlPlane.mode "connected" }}
+            - name: control-plane-token
+              mountPath: {{ .Values.licensing.controlPlane.tokenSecret.mountPath }}
+              readOnly: true
+            {{- if or .Values.licensing.controlPlane.tls.caConfigMap .Values.licensing.controlPlane.tls.caSecret }}
+            - name: control-plane-tls-ca
+              mountPath: {{ .Values.licensing.controlPlane.tls.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- if .Values.licensing.controlPlane.tls.clientSecret }}
+            - name: control-plane-tls-client
+              mountPath: {{ .Values.licensing.controlPlane.tls.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+          startupProbe:
+            {{- toYaml .Values.licensing.startupProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.licensing.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.licensing.livenessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.licensing.resources | nindent 12 }}
+      volumes:
+        - name: public-keys
+          {{- if .Values.licensing.publicKeys.existingSecret }}
+          secret:
+            secretName: {{ include "syncratic.licensingPublicKeysSecretName" . }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.licensingPublicKeysConfigMapName" . }}
+          {{- end }}
+        {{- if eq .Values.licensing.controlPlane.mode "connected" }}
+        - name: control-plane-token
+          secret:
+            secretName: {{ required "licensing.controlPlane.tokenSecret.existingSecret is required when licensing.controlPlane.mode=connected" (include "syncratic.licensingControlPlaneTokenSecretName" . | trim) }}
+        {{- if or .Values.licensing.controlPlane.tls.caConfigMap .Values.licensing.controlPlane.tls.caSecret }}
+        - name: control-plane-tls-ca
+          {{- if .Values.licensing.controlPlane.tls.caSecret }}
+          secret:
+            secretName: {{ include "syncratic.licensingControlPlaneTlsCaSecretName" . | trim }}
+          {{- else }}
+          configMap:
+            name: {{ include "syncratic.licensingControlPlaneTlsConfigMapName" . | trim }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.licensing.controlPlane.tls.clientSecret }}
+        - name: control-plane-tls-client
+          secret:
+            secretName: {{ include "syncratic.licensingControlPlaneTlsClientSecretName" . | trim }}
+        {{- end }}
+        {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.licensing.persistence.size }}
+        {{- if .Values.licensing.persistence.storageClassName }}
+        storageClassName: {{ .Values.licensing.persistence.storageClassName }}
+        {{- end }}
+{{- end }}
