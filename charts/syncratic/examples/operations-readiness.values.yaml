@@ -37,3 +37,4 @@ gateway:
       edgeIngressProofSummary: /srv/syncratic/phase2/operations/edge-ingress-proof-summary.json
       privacyEngineRuntimeConfigProof: /srv/syncratic/phase2/operations/privacy-engine-runtime-config-proof.json
       productionEvidencePackageManifest: /srv/syncratic/phase2/operations/production-evidence-package/manifest.json
+      retrievalEnginePromotionSummary: /srv/syncratic/phase2/operations/retrieval-engine-promotion-summary.json

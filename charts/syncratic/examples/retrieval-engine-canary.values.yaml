@@ -1,0 +1,15 @@
+# Retrieval Engine canary-mode overlay.
+# Apply only after Search shadow replay, Ask retrieval-contract replay, and promotion summary all pass.
+# Canary is the primary retrieval path. Retrieval failures are visible; rollback is explicit via mode=local.
+
+retrievalEngine:
+  enabled: true
+  mode: canary
+  canaryPercent: 5
+  timeoutSeconds: 30
+  # Optional production hardening: point both Gateway and retrieval-engine to the same shared token Secret.
+  # sharedTokenSecret:
+  #   existingSecret: syncratic-retrieval-engine-token
+  #   key: RETRIEVAL_ENGINE_SHARED_TOKEN
+  extraEnv:
+    RETRIEVAL_ENGINE_VERSION: "retrieval-engine-canary-candidate"

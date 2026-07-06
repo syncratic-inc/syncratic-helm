@@ -943,6 +943,12 @@ Post-deploy sequence:
 
 This subsystem does not replace tenant-owned email configuration. Bootstrap SMTP remains the first-run identity setup path, while tenant SMTP/webhook settings and user delivery preferences govern ongoing delivery.
 
+## Retrieval Engine promotion evidence
+
+When retrieval-engine shadow/contract replay artifacts are retained on the operations evidence PVC, set `gateway.operationsReadiness.paths.retrievalEnginePromotionSummary`. The gateway Deployment renders this value into `RETRIEVAL_ENGINE_PROMOTION_SUMMARY_OUTPUT`, and Admin -> Operations -> Retrieval Engine displays promotion readiness without changing runtime mode.
+
+The active chart includes example overlays for the deployment-owned sequence: `examples/retrieval-engine-shadow.values.yaml`, `examples/retrieval-engine-canary.values.yaml`, and `examples/retrieval-engine-rollback-local.values.yaml`. Use shadow first, generate retained replay/promotion evidence, move to a small canary only when promotion is ready, and roll back by applying the local overlay.
+
 ## LES connected control-plane contract
 
 The chart now supports an explicit connected LES control-plane contract instead of relying on generic `licensing.extraEnv` overrides.

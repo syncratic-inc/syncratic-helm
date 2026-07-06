@@ -1,0 +1,186 @@
+{{- if .Values.retrievalEngine.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncratic.fullname" . }}-retrieval-engine
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.retrievalEngine.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "syncratic.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: retrieval-engine
+  template:
+    metadata:
+      labels:
+        {{- include "syncratic.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: retrieval-engine
+      {{- with .Values.retrievalEngine.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: retrieval-engine
+          image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.retrievalEngine.image) }}"
+          imagePullPolicy: {{ .Values.retrievalEngine.image.pullPolicy }}
+          command:
+            - uvicorn
+            - retrieval_engine_main:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8099"
+            - --no-access-log
+          ports:
+            - name: http
+              containerPort: {{ .Values.retrievalEngine.service.port }}
+          env:
+            - name: LLMFS_ROOT
+              value: {{ .Values.gateway.persistence.docs.mountPath | quote }}
+            - name: LLMFS_MOUNT_ROOT
+              value: {{ .Values.gateway.persistence.docs.mountPath | quote }}
+            - name: LLMFS_UPLOAD_ROOT
+              value: /syncrauploads
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: {{ include "syncratic.redisUrl" . | quote }}
+            {{- end }}
+            {{- if .Values.neo4j.enabled }}
+            - name: NEO4J_URI
+              value: {{ include "syncratic.neo4jUri" . | quote }}
+            - name: NEO4J_USERNAME
+              value: neo4j
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.bootstrapSecretName" . }}
+                  key: NEO4J_PASSWORD
+            {{- end }}
+            {{- if .Values.postgres.enabled }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.postgresAuthSecretName" . }}
+                  key: {{ .Values.postgres.auth.keys.applicationDsn }}
+            - name: PGHOST
+              value: {{ include "syncratic.postgresHost" . | quote }}
+            - name: PGPORT
+              value: {{ .Values.postgres.service.port | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.postgres.contract.applicationDatabase | quote }}
+            - name: PGUSER
+              value: {{ .Values.postgres.contract.applicationUser | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.postgresAuthSecretName" . }}
+                  key: {{ .Values.postgres.auth.keys.adminPassword }}
+            {{- else if .Values.externalServices.connectionSecret.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.externalConnectionSecretName" . }}
+                  key: {{ .Values.externalServices.connectionSecret.keys.postgresUrl }}
+            {{- else }}
+            - name: DATABASE_URL
+              value: {{ .Values.externalServices.postgresUrl | quote }}
+            {{- end }}
+            {{- if .Values.qdrant.enabled }}
+            - name: QDRANT_URL
+              value: {{ include "syncratic.qdrantUrl" . | quote }}
+            {{- else if .Values.externalServices.connectionSecret.existingSecret }}
+            - name: QDRANT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.externalConnectionSecretName" . }}
+                  key: {{ .Values.externalServices.connectionSecret.keys.qdrantUrl }}
+            {{- else }}
+            - name: QDRANT_URL
+              value: {{ .Values.externalServices.qdrantUrl | quote }}
+            {{- end }}
+            {{- if .Values.bgeEmbeddings.enabled }}
+            - name: BGE_EMBEDDINGS_URL
+              value: {{ printf "%s/v1/embeddings" (include "syncratic.bgeEmbeddingsUrl" .) | quote }}
+            - name: EMBEDDING_URL
+              value: {{ include "syncratic.bgeEmbeddingsUrl" . | quote }}
+            {{- else if .Values.externalServices.connectionSecret.existingSecret }}
+            - name: BGE_EMBEDDINGS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.externalConnectionSecretName" . }}
+                  key: {{ .Values.externalServices.connectionSecret.keys.bgeEmbeddingsUrl }}
+            - name: EMBEDDING_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "syncratic.externalConnectionSecretName" . }}
+                  key: {{ .Values.externalServices.connectionSecret.keys.bgeEmbeddingsUrl }}
+            {{- else }}
+            - name: BGE_EMBEDDINGS_URL
+              value: {{ .Values.externalServices.bgeEmbeddingsUrl | quote }}
+            - name: EMBEDDING_URL
+              value: {{ .Values.externalServices.bgeEmbeddingsUrl | quote }}
+            {{- end }}
+            {{- if .Values.retrievalEngine.sharedTokenSecret.existingSecret }}
+            - name: RETRIEVAL_ENGINE_SHARED_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.retrievalEngine.sharedTokenSecret.existingSecret | quote }}
+                  key: {{ .Values.retrievalEngine.sharedTokenSecret.key | quote }}
+            {{- end }}
+            {{- include "syncratic.renderMapEnv" (dict "root" . "values" .Values.gateway.extraEnv) | nindent 12 }}
+            {{- include "syncratic.renderMapEnv" (dict "root" . "values" .Values.retrievalEngine.extraEnv) | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /v1/retrieval/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /v1/retrieval/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.retrievalEngine.resources | nindent 12 }}
+          volumeMounts:
+            - name: uploads
+              mountPath: /syncrauploads
+            {{- if .Values.gateway.persistence.docs.enabled }}
+            - name: docs
+              mountPath: {{ .Values.gateway.persistence.docs.mountPath }}
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: {{ include "syncratic.gatewayUploadsPvcName" . }}
+        {{- if .Values.gateway.persistence.docs.enabled }}
+        - name: docs
+          persistentVolumeClaim:
+            claimName: {{ .Values.gateway.persistence.docs.existingClaim | quote }}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "syncratic.fullname" . }}-retrieval-engine
+  labels:
+    {{- include "syncratic.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.retrievalEngine.service.type }}
+  ports:
+    - port: {{ .Values.retrievalEngine.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "syncratic.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: retrieval-engine
+{{- end }}

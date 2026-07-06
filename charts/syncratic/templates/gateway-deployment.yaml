@@ -443,6 +443,25 @@ spec:
             - name: OPERATIONS_READINESS_PRODUCTION_EVIDENCE_PACKAGE_MANIFEST
               value: {{ tpl . $ | quote }}
             {{- end }}
+            {{- with .Values.gateway.operationsReadiness.paths.retrievalEnginePromotionSummary }}
+            - name: RETRIEVAL_ENGINE_PROMOTION_SUMMARY_OUTPUT
+              value: {{ tpl . $ | quote }}
+            {{- end }}
+            {{- end }}
+            - name: RETRIEVAL_ENGINE_MODE
+              value: {{ .Values.retrievalEngine.mode | quote }}
+            - name: RETRIEVAL_ENGINE_URL
+              value: {{ printf "http://%s-retrieval-engine:%v" (include "syncratic.fullname" .) .Values.retrievalEngine.service.port | quote }}
+            - name: RETRIEVAL_ENGINE_TIMEOUT_S
+              value: {{ .Values.retrievalEngine.timeoutSeconds | quote }}
+            - name: RETRIEVAL_ENGINE_CANARY_PERCENT
+              value: {{ .Values.retrievalEngine.canaryPercent | quote }}
+            {{- if .Values.retrievalEngine.sharedTokenSecret.existingSecret }}
+            - name: RETRIEVAL_ENGINE_SHARED_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.retrievalEngine.sharedTokenSecret.existingSecret | quote }}
+                  key: {{ .Values.retrievalEngine.sharedTokenSecret.key | quote }}
             {{- end }}
             {{- include "syncratic.renderMapEnv" (dict "root" . "values" .Values.gateway.extraEnv) | nindent 12 }}
           volumeMounts:

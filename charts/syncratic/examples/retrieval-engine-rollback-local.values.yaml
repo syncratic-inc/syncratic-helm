@@ -1,0 +1,10 @@
+# Retrieval Engine rollback overlay.
+# This returns Gateway to the local in-process retrieval baseline without requiring a full Helm rollback.
+
+retrievalEngine:
+  enabled: false
+  mode: local
+  canaryPercent: 0
+  timeoutSeconds: 30
+  extraEnv:
+    RETRIEVAL_ENGINE_VERSION: "local"

@@ -286,3 +286,44 @@ helm upgrade --install syncratic ./kubernetes/helm/syncratic \
 ```
 
 The overlay only wires paths and an existing evidence PVC into the gateway. It does not create evidence artifacts or run production drills.
+
+## Retrieval Engine Shadow, Canary, And Rollback
+
+Files:
+
+- `retrieval-engine-shadow.values.yaml`
+- `retrieval-engine-canary.values.yaml`
+- `retrieval-engine-rollback-local.values.yaml`
+
+Use `retrieval-engine-shadow.values.yaml` to start the internal retrieval-engine service and keep Gateway returning local results while it records shadow parity diagnostics. After applying the shadow overlay, run the retained Search and Ask replay scripts and build the promotion summary artifact.
+
+```bash
+helm upgrade --install syncratic kubernetes/helm/syncratic \
+  -n syncratic \
+  -f kubernetes/helm/syncratic/examples/operations-readiness.values.yaml \
+  -f kubernetes/helm/syncratic/examples/retrieval-engine-shadow.values.yaml
+```
+
+Use `retrieval-engine-canary.values.yaml` only after Admin -> Operations -> Retrieval Engine shows `promotion_ready=true`, no blockers, and `recommended_next_mode=canary`. Automatic fallback is retired; use the rollback-local overlay when an explicit rollback is required. Start with a small `canaryPercent` for production rollout.
+
+```bash
+helm upgrade --install syncratic kubernetes/helm/syncratic \
+  -n syncratic \
+  -f kubernetes/helm/syncratic/examples/operations-readiness.values.yaml \
+  -f kubernetes/helm/syncratic/examples/retrieval-engine-canary.values.yaml
+```
+
+Use `retrieval-engine-rollback-local.values.yaml` to return Gateway to local retrieval without rolling back the full release. This disables the retrieval-engine deployment and sets Gateway mode back to `local`.
+
+```bash
+helm upgrade --install syncratic kubernetes/helm/syncratic \
+  -n syncratic \
+  -f kubernetes/helm/syncratic/examples/retrieval-engine-rollback-local.values.yaml
+```
+
+Boundary:
+
+- do not expose `retrieval-engine` through ingress or external service routes
+- keep Gateway as the only browser/API-facing Search and Ask boundary
+- supply actual image tags/digests through the deployment image override process
+- combine with `operations-readiness.values.yaml` when retaining promotion evidence on the operations PVC

@@ -883,6 +883,7 @@ gateway:
       edgeIngressProofSummary: ""
       privacyEngineRuntimeConfigProof: ""
       productionEvidencePackageManifest: ""
+      retrievalEnginePromotionSummary: ""
   persistence:
     uploads:
       enabled: true
@@ -1159,6 +1160,34 @@ frontend:
       port: http
     initialDelaySeconds: 30
     periodSeconds: 15
+
+retrievalEngine:
+  enabled: false
+  replicaCount: 1
+  mode: local
+  timeoutSeconds: 30
+  canaryPercent: 0
+  sharedTokenSecret:
+    existingSecret: ""
+    key: RETRIEVAL_ENGINE_SHARED_TOKEN
+  image:
+    repository: syncratic/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8099
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  podAnnotations: {}
+  extraEnv:
+    RETRIEVAL_ENGINE_VERSION: "local"
+
 
 help:
   enabled: true

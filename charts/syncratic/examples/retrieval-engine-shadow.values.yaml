@@ -1,0 +1,15 @@
+# Retrieval Engine shadow-mode overlay.
+# Use only after the internal retrieval-engine image has been selected by the deployment image override process.
+# Combine with operations-readiness.values.yaml when retaining replay/promotion evidence in Admin -> Operations.
+
+retrievalEngine:
+  enabled: true
+  mode: shadow
+  canaryPercent: 0
+  timeoutSeconds: 30
+  # Optional production hardening: point both Gateway and retrieval-engine to the same shared token Secret.
+  # sharedTokenSecret:
+  #   existingSecret: syncratic-retrieval-engine-token
+  #   key: RETRIEVAL_ENGINE_SHARED_TOKEN
+  extraEnv:
+    RETRIEVAL_ENGINE_VERSION: "retrieval-engine-shadow-candidate"
