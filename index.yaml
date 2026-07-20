@@ -3,7 +3,7 @@ entries:
   control-plane-sync-service:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-07-20T21:08:05.115414925Z"
+    created: "2026-07-20T23:49:35.210164184Z"
     description: Standalone Helm chart for the Syncratic control-plane authority service.
     digest: 25f730e37bdf6d97e4805a2e6cbce33a141290dcb36cde3ea8d1ba0404b3beb3
     name: control-plane-sync-service
@@ -13,8 +13,18 @@ entries:
     version: 0.1.0
   syncratic:
   - apiVersion: v2
+    appVersion: 0.1.4
+    created: "2026-07-20T23:49:35.230087133Z"
+    description: Syncratic production runtime chart for customer Kubernetes deployments.
+    digest: b18aebeaa0898c35adbcc37afc5744ed0998349255ea533c2da2f42864748aab
+    name: syncratic
+    type: application
+    urls:
+    - https://syncratic-inc.github.io/syncratic-helm/packages/syncratic-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
     appVersion: 0.1.3
-    created: "2026-07-20T21:08:05.132846117Z"
+    created: "2026-07-20T23:49:35.226395169Z"
     description: Syncratic production runtime chart for customer Kubernetes deployments.
     digest: cf80cf27e540e31684c0bb4e5487f4fa0e033e38c3e5269a90c42412169ca21a
     name: syncratic
@@ -24,7 +34,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 0.1.2
-    created: "2026-07-20T21:08:05.128868997Z"
+    created: "2026-07-20T23:49:35.222682465Z"
     description: Syncratic production runtime chart for customer Kubernetes deployments.
     digest: bef3a6fb8eaa05a4eafaa7835e72250170070f7e2d06540f7e81b02bad1f0c87
     name: syncratic
@@ -34,7 +44,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 0.1.1
-    created: "2026-07-20T21:08:05.124621284Z"
+    created: "2026-07-20T23:49:35.218707536Z"
     description: Syncratic production runtime chart for customer Kubernetes deployments.
     digest: c840d4eb95c05f0c90974403e0077d676f35c4246cff3d5fdd12b19e743ec21b
     name: syncratic
@@ -44,7 +54,7 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-07-20T21:08:05.120149989Z"
+    created: "2026-07-20T23:49:35.214704333Z"
     description: Syncratic production runtime chart for customer Kubernetes deployments.
     digest: bb89c0d0110029846d349c0d43deb97b28959d77594e320904c4e5b7d30a6a04
     name: syncratic
@@ -52,4 +62,4 @@ entries:
     urls:
     - https://syncratic-inc.github.io/syncratic-helm/packages/syncratic-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-20T21:08:05.114675166Z"
+generated: "2026-07-20T23:49:35.209752085Z"
