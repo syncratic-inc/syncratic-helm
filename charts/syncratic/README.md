@@ -137,6 +137,13 @@ That boundary is intentional:
 - migration privilege can stay narrower than the normal application DSN through the separate migration DSN seam
 - K8s rollouts should not repeat the Docker failure mode where the runtime image sees new SQL files but the schema remains behind
 
+The chart now also carries Docker-parity runtime defaults for the production Insights and Privacy Engine surfaces:
+
+- `INSIGHTS_COMMUNITY_ENABLED=true` so Leiden/community signal generation participates in the Insights feed when the released gateway image supports it
+- `INSIGHTS_MODEL_NARRATIVES_ENABLED=true` plus explicit worker interval, batch, timeout, retry, and cooldown values so narrative generation is handled by the gateway-owned background worker rather than being an implicit render-time behavior
+- `PRIVACY_ENGINE_ENABLED=true`, scan/context gates enabled, and `PRIVACY_ENGINE_ENFORCEMENT_MODE=enforce` so Kubernetes deployments expose the same Privacy Engine runtime posture as the Docker R&D environment unless an operator intentionally overrides it
+- the tenant-level Admin Privacy Engine configuration remains database-owned; Helm only provides the deployment baseline and the gateway migration hook applies the schema needed for tenant overrides such as Live Feed text-field gates
+
 For production and k3 testing, prefer immutable gateway image tags or digests. If a mutable tag such as `latest` is used during bootstrap testing, rebuild/push or import the image into the cluster before `helm upgrade`, and use a pull policy that guarantees the migration hook and gateway Deployment see the same image content. In `online_registry` mode, the chart already rejects `latest` without a digest for enabled services.
 
 Deployable example overlay:

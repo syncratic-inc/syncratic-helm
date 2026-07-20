@@ -3,9 +3,9 @@ entries:
   control-plane-sync-service:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-06-30T04:51:38.088302057Z"
+    created: "2026-07-20T15:24:10.791024143Z"
     description: Standalone Helm chart for the Syncratic control-plane authority service.
-    digest: 4c5aa9d992ef7cf243694b0595225fb179952cce5f4ef169e4e5d892996383ed
+    digest: 488e2e92b8dde951a7ded9d63ccfae0a77e941ad5154001ec608f6fd09b84322
     name: control-plane-sync-service
     type: application
     urls:
@@ -13,8 +13,18 @@ entries:
     version: 0.1.0
   syncratic:
   - apiVersion: v2
+    appVersion: 0.1.1
+    created: "2026-07-20T15:24:10.799646549Z"
+    description: Syncratic production runtime chart for customer Kubernetes deployments.
+    digest: c840d4eb95c05f0c90974403e0077d676f35c4246cff3d5fdd12b19e743ec21b
+    name: syncratic
+    type: application
+    urls:
+    - https://syncratic-inc.github.io/syncratic-helm/packages/syncratic-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-06-30T04:51:38.092873745Z"
+    created: "2026-07-20T15:24:10.795500518Z"
     description: Syncratic production runtime chart for customer Kubernetes deployments.
     digest: bb89c0d0110029846d349c0d43deb97b28959d77594e320904c4e5b7d30a6a04
     name: syncratic
@@ -22,4 +32,4 @@ entries:
     urls:
     - https://syncratic-inc.github.io/syncratic-helm/packages/syncratic-0.1.0.tgz
     version: 0.1.0
-generated: "2026-06-30T04:51:38.087851184Z"
+generated: "2026-07-20T15:24:10.79011847Z"
