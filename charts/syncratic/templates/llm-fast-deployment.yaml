@@ -30,9 +30,9 @@ spec:
           image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.llmFast.image) }}"
           imagePullPolicy: {{ .Values.llmFast.image.pullPolicy }}
           args:
-            - {{ .Values.llmFast.model.name | quote }}
+            - {{ required "llmFast.model.name is required when llmFast.enabled=true" .Values.llmFast.model.name | quote }}
             - --served-model-name
-            - {{ .Values.llmFast.model.servedModelName | quote }}
+            - {{ required "llmFast.model.servedModelName is required when llmFast.enabled=true" .Values.llmFast.model.servedModelName | quote }}
             - --dtype
             - {{ .Values.llmFast.model.dtype | quote }}
             - --gpu-memory-utilization
