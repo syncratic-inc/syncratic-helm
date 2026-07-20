@@ -1556,123 +1556,6 @@
         }
       ]
     },
-    "orchestrator": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^/"
-        },
-        "runtimeSecret": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "existingSecret": {
-              "type": "string"
-            },
-            "create": {
-              "type": "boolean"
-            },
-            "keys": {
-              "type": "object",
-              "additionalProperties": true,
-              "properties": {
-                "basicAuthPassword": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "dbPassword": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
-              "required": [
-                "basicAuthPassword",
-                "dbPassword"
-              ]
-            }
-          },
-          "anyOf": [
-            {
-              "properties": {
-                "existingSecret": {
-                  "minLength": 1
-                }
-              },
-              "required": [
-                "existingSecret"
-              ]
-            },
-            {
-              "properties": {
-                "create": {
-                  "const": true
-                }
-              },
-              "required": [
-                "create"
-              ]
-            },
-            {
-              "properties": {
-                "existingSecret": {
-                  "maxLength": 0
-                },
-                "create": {
-                  "const": false
-                }
-              },
-              "required": [
-                "existingSecret",
-                "create"
-              ]
-            }
-          ]
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "enabled": {
-                "const": true
-              }
-            },
-            "required": [
-              "enabled"
-            ]
-          },
-          "then": {
-            "properties": {
-              "runtimeSecret": {
-                "not": {
-                  "properties": {
-                    "existingSecret": {
-                      "maxLength": 0
-                    },
-                    "create": {
-                      "const": false
-                    }
-                  },
-                  "required": [
-                    "existingSecret",
-                    "create"
-                  ]
-                }
-              }
-            },
-            "required": [
-              "runtimeSecret"
-            ]
-          }
-        }
-      ]
-    },
     "redis": {
       "type": "object",
       "additionalProperties": true,
@@ -1835,21 +1718,11 @@
             "applicationUser": {
               "type": "string",
               "minLength": 1
-            },
-            "orchestratorDatabase": {
-              "type": "string",
-              "minLength": 1
-            },
-            "orchestratorUser": {
-              "type": "string",
-              "minLength": 1
             }
           },
           "required": [
             "applicationDatabase",
-            "applicationUser",
-            "orchestratorDatabase",
-            "orchestratorUser"
+            "applicationUser"
           ]
         },
         "auth": {
@@ -1885,18 +1758,13 @@
                 "gatewayMigrationDsn": {
                   "type": "string",
                   "minLength": 1
-                },
-                "orchestratorPassword": {
-                  "type": "string",
-                  "minLength": 1
                 }
               },
               "required": [
                 "adminPassword",
                 "applicationDsn",
                 "evaluationDsn",
-                "gatewayMigrationDsn",
-                "orchestratorPassword"
+                "gatewayMigrationDsn"
               ]
             }
           },

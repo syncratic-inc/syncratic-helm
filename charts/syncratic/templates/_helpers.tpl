@@ -124,13 +124,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "syncratic.orchestratorRuntimeSecretName" -}}
-{{- if .Values.orchestrator.runtimeSecret.existingSecret -}}
-{{- .Values.orchestrator.runtimeSecret.existingSecret -}}
-{{- else -}}
-{{- printf "%s-orchestrator-runtime" (include "syncratic.fullname" .) -}}
-{{- end -}}
-{{- end -}}
 
 {{- define "syncratic.licensingPublicKeysConfigMapName" -}}
 {{- if .Values.licensing.publicKeys.existingConfigMap -}}
@@ -244,9 +237,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s-evaluation-suites" (include "syncratic.fullname" .) -}}
 {{- end -}}
 
-{{- define "syncratic.orchestratorDataPvcName" -}}
-{{- printf "%s-orchestrator-data" (include "syncratic.fullname" .) -}}
-{{- end -}}
 
 {{- define "syncratic.postgresAuthSecretName" -}}
 {{- if .Values.postgres.auth.existingSecret -}}

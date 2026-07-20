@@ -130,17 +130,6 @@ spec:
             matchLabels:
               {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
           {{- end }}
-          {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
-          namespaceSelector:
-            matchLabels:
-              {{- toYaml .Values.networkPolicy.allowIngressNamespaceLabels | nindent 14 }}
-          {{- else }}
-          podSelector:
-            matchLabels:
-              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
-          {{- end }}
-        {{- end }}
-{{- end }}
 {{- if .Values.observability.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
@@ -537,36 +526,6 @@ spec:
           {{- end }}
         {{- end }}
 {{- end }}
-{{- if .Values.orchestrator.enabled }}
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: {{ include "syncratic.fullname" . }}-orchestrator-ingress
-  labels:
-    {{- include "syncratic.labels" . | nindent 4 }}
-spec:
-  podSelector:
-    matchLabels:
-      {{- include "syncratic.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: orchestrator
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              {{- include "syncratic.selectorLabels" . | nindent 14 }}
-        {{- if or .Values.networkPolicy.ingressController.enabled .Values.networkPolicy.allowIngressNamespaceLabels }}
-        - {{- if .Values.networkPolicy.ingressController.namespaceLabels }}
-          namespaceSelector:
-            matchLabels:
-              {{- toYaml .Values.networkPolicy.ingressController.namespaceLabels | nindent 14 }}
-          {{- if .Values.networkPolicy.ingressController.podLabels }}
-          podSelector:
-            matchLabels:
-              {{- toYaml .Values.networkPolicy.ingressController.podLabels | nindent 14 }}
-          {{- end }}
           {{- else if .Values.networkPolicy.allowIngressNamespaceLabels }}
           namespaceSelector:
             matchLabels:

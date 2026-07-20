@@ -30,7 +30,6 @@
     (dict "name" "bgeEmbeddings" "image" .Values.bgeEmbeddings.image "enabled" .Values.bgeEmbeddings.enabled)
     (dict "name" "llmFast" "image" .Values.llmFast.image "enabled" .Values.llmFast.enabled)
     (dict "name" "llmDeep" "image" .Values.llmDeep.image "enabled" .Values.llmDeep.enabled)
-    (dict "name" "orchestrator" "image" .Values.orchestrator.image "enabled" .Values.orchestrator.enabled)
   ) -}}
   {{- range $allImages }}
     {{- $tag := default "" .image.tag | trim -}}

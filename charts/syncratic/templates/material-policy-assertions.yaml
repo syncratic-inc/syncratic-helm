@@ -77,12 +77,6 @@
   {{- if and .Values.evaluation.enabled (not (.Values.evaluation.runtimeSecret.existingSecret | trim)) -}}
     {{- fail "materialPolicy.sourceMode=cluster_managed requires evaluation.runtimeSecret.existingSecret when evaluation.enabled=true" -}}
   {{- end -}}
-  {{- if and .Values.orchestrator.enabled .Values.orchestrator.runtimeSecret.create -}}
-    {{- fail "materialPolicy.sourceMode=cluster_managed requires orchestrator.runtimeSecret.create=false when orchestrator.enabled=true" -}}
-  {{- end -}}
-  {{- if and .Values.orchestrator.enabled (not (.Values.orchestrator.runtimeSecret.existingSecret | trim)) -}}
-    {{- fail "materialPolicy.sourceMode=cluster_managed requires orchestrator.runtimeSecret.existingSecret when orchestrator.enabled=true" -}}
-  {{- end -}}
   {{- if and .Values.keycloak.enabled .Values.keycloak.adminSecret.create -}}
     {{- fail "materialPolicy.sourceMode=cluster_managed requires keycloak.adminSecret.create=false when keycloak.enabled=true" -}}
   {{- end -}}
