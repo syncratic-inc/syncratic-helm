@@ -200,7 +200,6 @@ It is intentionally scoped to:
 - optional absorbed `bge-embeddings` critical backplane slice
 - optional absorbed `llm-fast` critical backplane slice
 - optional `evaluation-agent`
-- optional `orchestrator`
 - `licensing-service`
 - `runtime-node-agent`
 - dedicated `runtimeWorkers` Deployments for:
@@ -255,15 +254,11 @@ When enabled, the chart provides:
 - internal-only network-policy ingress from chart pods
 - explicit application database contract:
   - `syncratic_rag`
-- explicit orchestrator database contract:
-  - `n8n`
-- init-time creation of the orchestrator database through a chart-owned ConfigMap
 - dedicated PostgreSQL auth secret boundary for:
   - `POSTGRES_PASSWORD`
   - `DATABASE_URL`
   - `EVAL_DB_DSN`
   - `GATEWAY_MIGRATION_DSN`
-  - `DB_POSTGRESDB_PASSWORD`
 - runtime DSN split now stays honest:
   - `DATABASE_URL` and `EVAL_DB_DSN` remain SQLAlchemy-style `postgresql+psycopg://...`
   - `GATEWAY_MIGRATION_DSN` is emitted as a psycopg-native `postgresql://...`
@@ -309,10 +304,6 @@ The remaining critical backplane is still external by default:
 When PostgreSQL remains external:
 
 - `externalServices.postgresUrl` is the application/evaluation DSN and should target `syncratic_rag`
-- the orchestrator database remains separately modeled by:
-  - `postgres.contract.orchestratorDatabase`
-  - `postgres.contract.orchestratorUser`
-
 When embeddings remain external:
 
 - `externalServices.bgeEmbeddingsUrl` stays the runtime embedding endpoint contract
@@ -672,23 +663,6 @@ This keeps evaluation packaging honest:
 
 The chart now supports an optional packaged orchestration surface:
 
-- `orchestrator.enabled=true`
-
-When enabled, the chart provides:
-
-- `orchestrator` based on the current n8n runtime shape
-- a dedicated runtime secret boundary for:
-  - `N8N_BASIC_AUTH_PASSWORD`
-  - `DB_POSTGRESDB_PASSWORD`
-- a dedicated PVC for `/home/node/.n8n`
-- `/orch` ingress routing on the frontend host
-- runtime smoke coverage through TCP reachability instead of an invented HTTP health path
-- material-contract validation of the orchestrator runtime secret
-- network-policy ingress allowance for the orchestrator public surface
-
-This keeps the boundary disciplined:
-
-- orchestrator remains opt-in
 - its database contract stays external and explicit instead of quietly assuming the application Postgres URL shape is reusable
 - the chart does not claim a stronger in-service health contract than the current runtime actually exposes
 

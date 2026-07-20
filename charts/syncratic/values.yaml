@@ -300,10 +300,6 @@ runtimeTests:
       enabled: true
       url: "{{ ternary (printf \"http://%s-transformer:%v/health\" (include \"syncratic.fullname\" .) .Values.transformer.service.port) \"\" .Values.transformer.enabled }}"
   tcpTargets:
-    orchestrator:
-      enabled: "{{ .Values.orchestrator.enabled }}"
-      host: "{{ include \"syncratic.fullname\" . }}-orchestrator"
-      port: "{{ .Values.orchestrator.service.port }}"
 
 materialTests:
   enabled: true
@@ -338,14 +334,11 @@ materialTests:
   evaluationRequiredSecretKeys:
     - EVAL_INTERNAL_TRIGGER_TOKEN
     - EVAL_SERVICE_GATEWAY_API_KEY
-  orchestratorRequiredSecretKeys:
-    - N8N_BASIC_AUTH_PASSWORD
   postgresRequiredSecretKeys:
     - POSTGRES_PASSWORD
     - DATABASE_URL
     - EVAL_DB_DSN
     - GATEWAY_MIGRATION_DSN
-    - DB_POSTGRESDB_PASSWORD
   publicKeyConfig:
     requireNonEmptyKeySet: true
   registrationPublicKeyConfig:
@@ -605,8 +598,6 @@ postgres:
   contract:
     applicationDatabase: "syncratic_rag"
     applicationUser: "postgres"
-    orchestratorDatabase: "n8n"
-    orchestratorUser: "postgres"
   auth:
     existingSecret: ""
     create: true
@@ -615,7 +606,6 @@ postgres:
       applicationDsn: DATABASE_URL
       evaluationDsn: EVAL_DB_DSN
       gatewayMigrationDsn: GATEWAY_MIGRATION_DSN
-      orchestratorPassword: DB_POSTGRESDB_PASSWORD
     password: "syncratic-postgres-v1"
   image:
     repository: postgres
@@ -1593,56 +1583,6 @@ evaluation:
     initialDelaySeconds: 30
     periodSeconds: 15
 
-orchestrator:
-  enabled: false
-  replicaCount: 1
-  image:
-    repository: n8nio/n8n
-    tag: latest
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 5678
-  runtimeSecret:
-    existingSecret: ""
-    create: false
-    keys:
-      basicAuthPassword: N8N_BASIC_AUTH_PASSWORD
-      dbPassword: DB_POSTGRESDB_PASSWORD
-    basicAuthPassword: ""
-    dbPassword: ""
-  resources: {}
-  podAnnotations: {}
-  timezone: "UTC"
-  basicAuth:
-    enabled: true
-    username: "admin"
-  path: "/orch"
-  database:
-    host: "postgres"
-    port: 5432
-    name: "n8n"
-    user: "postgres"
-  persistence:
-    existingClaim: ""
-    size: 5Gi
-    storageClassName: ""
-  extraEnv: {}
-  startupProbe:
-    tcpSocket:
-      port: http
-    failureThreshold: 30
-    periodSeconds: 10
-  readinessProbe:
-    tcpSocket:
-      port: http
-    initialDelaySeconds: 10
-    periodSeconds: 10
-  livenessProbe:
-    tcpSocket:
-      port: http
-    initialDelaySeconds: 30
-    periodSeconds: 15
 
 transformer:
   enabled: false

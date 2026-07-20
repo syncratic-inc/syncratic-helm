@@ -36,9 +36,6 @@ Primary services:
 {{- if .Values.evaluation.enabled }}
 - Evaluation Agent: {{ include "syncratic.fullname" . }}-evaluation-agent
 {{- end }}
-{{- if .Values.orchestrator.enabled }}
-- Orchestrator: {{ include "syncratic.fullname" . }}-orchestrator
-{{- end }}
 - Licensing: {{ include "syncratic.fullname" . }}-licensing
 {{- if .Values.transformer.enabled }}
 - Transformer: {{ include "syncratic.fullname" . }}-transformer
@@ -78,23 +75,11 @@ Operator checks:
    - `evaluation.runtimeSecret.existingSecret`
    - or `evaluation.runtimeSecret.create=true`
    - and provide a managed suites PVC through either the chart-managed claim or `evaluation.persistence.managedSuites.existingClaim`
-10. If `orchestrator.enabled=true`, configure orchestrator runtime material through either:
-   - `orchestrator.runtimeSecret.existingSecret`
-   - or `orchestrator.runtimeSecret.create=true`
-   - and provide an orchestrator data PVC through either the chart-managed claim or `orchestrator.persistence.existingClaim`
-11. If `redis.enabled=true`, keep `externalServices.redisUrl` unset unless you deliberately want to override the chart-owned Redis boundary.
-12. If `qdrant.enabled=true`, keep `externalServices.qdrantUrl` unset unless you deliberately want to override the chart-owned Qdrant boundary.
-13. If `neo4j.enabled=true`, keep `externalServices.neo4jUri` unset unless you deliberately want to override the chart-owned Neo4j boundary.
-14. If `postgres.enabled=true`, keep `externalServices.postgresUrl` unset unless you deliberately want to override the chart-owned PostgreSQL boundary.
-15. If `postgres.enabled=true`, the chart-owned database contract is:
-   - application/evaluation database: `syncratic_rag`
-   - orchestrator database: `n8n`
    - and the PostgreSQL auth secret must provide:
      - `POSTGRES_PASSWORD`
      - `DATABASE_URL`
      - `EVAL_DB_DSN`
      - `GATEWAY_MIGRATION_DSN`
-     - `DB_POSTGRESDB_PASSWORD`
 16. If `keycloak.enabled=true`, provide:
    - `keycloak.adminSecret.existingSecret`
    - or `keycloak.adminSecret.create=true`
@@ -115,7 +100,6 @@ Operator checks:
    - auth material from either `auth.runtimeSecret.existingSecret` or the external bootstrap secret
    - Help gateway-token material from `help.gatewayTokenSecret.existingSecret`
    - evaluation runtime material from `evaluation.runtimeSecret.existingSecret` when `evaluation.enabled=true`
-   - orchestrator runtime material from `orchestrator.runtimeSecret.existingSecret` when `orchestrator.enabled=true`
    - PostgreSQL auth material from `postgres.auth.existingSecret` when `postgres.enabled=true`
    - Keycloak admin and DB material from:
      - `keycloak.adminSecret.existingSecret`
@@ -145,8 +129,8 @@ Operator checks:
 28. Run `helm test <release>` to validate:
    - LES release gates
    - backplane dependency reachability from inside the cluster
-   - packaged runtime smoke readiness for gateway, frontend, help, optional evaluation-agent, optional Keycloak discovery surface, optional embeddings endpoint, optional fast LLM endpoint, optional deep LLM endpoint, optional orchestrator TCP reachability, licensing, optional transformer, and optional help-curator
-   - mounted bootstrap secret, auth runtime secret, Help gateway-token secret, optional evaluation runtime secret, optional orchestrator runtime secret, optional PostgreSQL auth secret, optional Keycloak admin/DB secrets and realm material, LES public-key contract, connected control-plane material when enabled, and optional external trust bundle
+   - packaged runtime smoke readiness for gateway, frontend, help, optional evaluation-agent, optional Keycloak discovery surface, optional embeddings endpoint, optional fast LLM endpoint, optional deep LLM endpoint, licensing, optional transformer, and optional help-curator
+   - mounted bootstrap secret, auth runtime secret, Help gateway-token secret, optional evaluation runtime secret, optional PostgreSQL auth secret, optional Keycloak admin/DB secrets and realm material, LES public-key contract, connected control-plane material when enabled, and optional external trust bundle
    {{- if .Values.ingress.enabled }}
    - public ingress host, auth topology, and runtime URL contract
    {{- end }}
@@ -168,4 +152,4 @@ Operator checks:
 34. If `ingress.enabled=true` and `networkPolicy.enabled=true`, verify external ingress is allowed through either:
    - `networkPolicy.ingressController.*`
    - or the legacy `networkPolicy.allowIngressNamespaceLabels` fallback
-   - otherwise frontend, gateway, help, optional evaluation-agent/orchestrator ingress, and optional Keycloak ingress will remain denied by policy
+   - otherwise frontend, gateway, help, optional evaluation-agent ingress, and optional Keycloak ingress will remain denied by policy
