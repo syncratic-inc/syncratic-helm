@@ -30,9 +30,9 @@ spec:
           image: "{{ include "syncratic.imageRef" (dict "Values" .Values "image" .Values.llmDeep.image) }}"
           imagePullPolicy: {{ .Values.llmDeep.image.pullPolicy }}
           args:
-            - {{ .Values.llmDeep.model.name | quote }}
+            - {{ required "llmDeep.model.name is required when llmDeep.enabled=true" .Values.llmDeep.model.name | quote }}
             - --served-model-name
-            - {{ .Values.llmDeep.model.servedModelName | quote }}
+            - {{ required "llmDeep.model.servedModelName is required when llmDeep.enabled=true" .Values.llmDeep.model.servedModelName | quote }}
             - --dtype
             - {{ .Values.llmDeep.model.dtype | quote }}
             - --gpu-memory-utilization

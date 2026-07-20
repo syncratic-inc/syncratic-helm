@@ -231,12 +231,16 @@ dependencyTests:
       host: ""
       port: 8000
     llmFast:
-      enabled: true
+      # Runtime model endpoints are Admin-owned by default; enable this probe
+      # only when a packaged or explicit external fast model endpoint is present.
+      enabled: false
       url: "{{ ternary (include \"syncratic.llmFastUrl\" .) .Values.externalServices.llmFastUrl .Values.llmFast.enabled }}"
       host: ""
       port: 8000
     llmDeep:
-      enabled: true
+      # Runtime model endpoints are Admin-owned by default; enable this probe
+      # only when a packaged or explicit external deep model endpoint is present.
+      enabled: false
       url: "{{ ternary (include \"syncratic.llmDeepUrl\" .) .Values.externalServices.llmDeepUrl .Values.llmDeep.enabled }}"
       host: ""
       port: 8000
@@ -393,8 +397,11 @@ externalServices:
   keycloakInternalUrl: "http://keycloak:8080"
   keycloakRealm: "syncratic"
   bgeEmbeddingsUrl: "http://bge-emb:8000"
-  llmFastUrl: "http://qwen3-3b:8000"
-  llmDeepUrl: "http://qwen3-14b:8000"
+  # Runtime model endpoints are normally configured through Admin -> Models.
+  # Set these only for external endpoint bootstrap, chart dependency tests, or
+  # deployments that intentionally keep model bindings outside the database.
+  llmFastUrl: ""
+  llmDeepUrl: ""
   transformerUrl: "http://artifact-transformer:8091"
   # Tenant-specific connector OAuth credentials should be configured at runtime
   # through the product admin surface. Keep environment-level connector provider
@@ -521,8 +528,10 @@ llmFast:
     type: ClusterIP
     port: 8000
   model:
-    name: "Qwen/Qwen2.5-3B-Instruct"
-    servedModelName: "qwen3-3b"
+    # Required when llmFast.enabled=true. The chart does not select a vendor
+    # model by default because production model identity is Admin-owned.
+    name: ""
+    servedModelName: ""
     dtype: "float16"
     gpuMemoryUtilization: "0.20"
     maxModelLen: "4096"
@@ -560,8 +569,10 @@ llmDeep:
     type: ClusterIP
     port: 8000
   model:
-    name: "Qwen/Qwen2.5-14B-Instruct"
-    servedModelName: "qwen3-14b"
+    # Required when llmDeep.enabled=true. The chart does not select a vendor
+    # model by default because production model identity is Admin-owned.
+    name: ""
+    servedModelName: ""
     dtype: "float16"
     gpuMemoryUtilization: "0.70"
     maxModelLen: "8192"
@@ -809,7 +820,9 @@ gateway:
         token: ""
   extraEnv:
     AUTH_SESSION_TTL_SECONDS: "300"
-    LLM_MODEL: "qwen3-14b"
+    # Model IDs are Admin-owned through runtime model bindings. Leave these blank
+    # unless intentionally running in non-DB fallback mode.
+    LLM_MODEL: ""
     LLMFS_REDIS_WORKER_LEASE_S: "300"
     LLMFS_REDIS_WORKER_MAX_ATTEMPTS: "3"
     LLMFS_ENABLE_REDIS_ENRICHMENT_QUEUE: "true"
@@ -827,17 +840,17 @@ gateway:
     LLMFS_ENABLE_GRAPH_RETRIEVAL: "true"
     LLMFS_ENABLE_GRAPH_CITATIONS: "false"
     LLMFS_ENABLE_SLM_GRAPH_DECOMPOSITION: "true"
-    LLMFS_GRAPH_EXTRACTION_MODEL: "qwen3-14b"
+    LLMFS_GRAPH_EXTRACTION_MODEL: ""
     LLMFS_GRAPH_DECOMPOSITION_MAX_WINDOWS: "12"
     LLMFS_GRAPH_DECOMPOSITION_MAX_CHARS_PER_WINDOW: "500"
     LLMFS_GRAPH_DECOMPOSITION_TIMEOUT_S: "60"
     LLMFS_GRAPH_PATH_MIN_RELATIONSHIPS: "2"
     LLMFS_GRAPH_EVIDENCE_MIN_SCORE: "0.8"
     LLMFS_ASK_GRAPH_CITATION_LIMIT: "1"
-    LLM_ASK_FAST_MODEL: "qwen3-3b"
+    LLM_ASK_FAST_MODEL: ""
     LLM_ASK_FAST_QUERY_TYPES: "identity_lookup,fact_lookup,entity_date_lookup,section_lookup,clause_policy_lookup"
-    LLM_ASK_BASIC_MODEL: "qwen3-3b"
-    LLM_ASK_DEEP_MODEL: "qwen3-14b"
+    LLM_ASK_BASIC_MODEL: ""
+    LLM_ASK_DEEP_MODEL: ""
     LLM_ASK_CONNECT_TIMEOUT_S: "20"
     LLM_ASK_READ_TIMEOUT_S: "300"
     LLM_ASK_WRITE_TIMEOUT_S: "60"
@@ -1033,7 +1046,7 @@ runtimeWorkers:
         LLMFS_ENABLE_REDIS_GRAPH_QUEUE: "true"
         LLMFS_ENABLE_GRAPH_ENRICHMENT: "true"
         LLMFS_ENABLE_SLM_GRAPH_DECOMPOSITION: "true"
-        LLMFS_GRAPH_EXTRACTION_MODEL: "qwen3-14b"
+        LLMFS_GRAPH_EXTRACTION_MODEL: ""
         LLMFS_GRAPH_DECOMPOSITION_MAX_WINDOWS: "12"
         LLMFS_GRAPH_DECOMPOSITION_MAX_CHARS_PER_WINDOW: "500"
         LLMFS_GRAPH_DECOMPOSITION_TIMEOUT_S: "60"
@@ -1530,7 +1543,7 @@ evaluation:
     EVAL_SCHEDULE_CRON: "0 2 * * *"
     EVAL_ENABLE_LLM_JUDGE: "true"
     EVAL_REQUIRE_RUNTIME_MODEL_BINDINGS: "true"
-    EVAL_LLM_JUDGE_MODEL: "qwen3-14b"
+    EVAL_LLM_JUDGE_MODEL: ""
     EVAL_LOG_LEVEL: "INFO"
   startupProbe:
     httpGet:

@@ -1749,12 +1749,10 @@
           "additionalProperties": true,
           "properties": {
             "name": {
-              "type": "string",
-              "minLength": 1
+              "type": "string"
             },
             "servedModelName": {
-              "type": "string",
-              "minLength": 1
+              "type": "string"
             },
             "dtype": {
               "type": "string",
@@ -1791,12 +1789,10 @@
           "additionalProperties": true,
           "properties": {
             "name": {
-              "type": "string",
-              "minLength": 1
+              "type": "string"
             },
             "servedModelName": {
-              "type": "string",
-              "minLength": 1
+              "type": "string"
             },
             "dtype": {
               "type": "string",
@@ -3140,118 +3136,6 @@
                   },
                   "required": [
                     "keycloakInternalUrl"
-                  ]
-                }
-              }
-            ]
-          }
-        },
-        "required": [
-          "externalServices"
-        ]
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "llmDeep": {
-            "type": "object",
-            "properties": {
-              "enabled": {
-                "const": false
-              }
-            },
-            "required": [
-              "enabled"
-            ]
-          }
-        },
-        "required": [
-          "llmDeep"
-        ]
-      },
-      "then": {
-        "properties": {
-          "externalServices": {
-            "type": "object",
-            "allOf": [
-              {
-                "if": {
-                  "properties": {
-                    "connectionSecret": {
-                      "type": "object",
-                      "properties": {
-                        "existingSecret": {
-                          "maxLength": 0
-                        }
-                      }
-                    }
-                  }
-                },
-                "then": {
-                  "properties": {
-                    "llmDeepUrl": {
-                      "minLength": 1
-                    }
-                  },
-                  "required": [
-                    "llmDeepUrl"
-                  ]
-                }
-              }
-            ]
-          }
-        },
-        "required": [
-          "externalServices"
-        ]
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "llmFast": {
-            "type": "object",
-            "properties": {
-              "enabled": {
-                "const": false
-              }
-            },
-            "required": [
-              "enabled"
-            ]
-          }
-        },
-        "required": [
-          "llmFast"
-        ]
-      },
-      "then": {
-        "properties": {
-          "externalServices": {
-            "type": "object",
-            "allOf": [
-              {
-                "if": {
-                  "properties": {
-                    "connectionSecret": {
-                      "type": "object",
-                      "properties": {
-                        "existingSecret": {
-                          "maxLength": 0
-                        }
-                      }
-                    }
-                  }
-                },
-                "then": {
-                  "properties": {
-                    "llmFastUrl": {
-                      "minLength": 1
-                    }
-                  },
-                  "required": [
-                    "llmFastUrl"
                   ]
                 }
               }

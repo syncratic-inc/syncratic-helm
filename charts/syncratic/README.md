@@ -226,8 +226,8 @@ Current absorbed backplane support:
 - `postgres.enabled=true`
 - `keycloak.enabled=true`
 - `bgeEmbeddings.enabled=true`
-- `llmFast.enabled=true`
-- `llmDeep.enabled=true`
+- `llmFast.enabled=false` by default; optional packaged fast-model service when explicitly configured
+- `llmDeep.enabled=false` by default; optional packaged deep-model service when explicitly configured
 
 When enabled, the chart provides:
 
@@ -295,16 +295,12 @@ When enabled, the chart provides:
 - internal-only network-policy ingress from chart pods
 - automatic runtime wiring so packaged services resolve the in-chart embeddings URL instead of `externalServices.bgeEmbeddingsUrl`
 - dependency-test and runtime-smoke coverage against the absorbed embeddings backplane
-- singleton fast LLM inference endpoint through a dedicated Deployment
-- internal-only ClusterIP service
-- internal-only network-policy ingress from chart pods
-- automatic runtime wiring so packaged services resolve the in-chart fast LLM URL instead of `externalServices.llmFastUrl`
-- dependency-test and runtime-smoke coverage against the absorbed fast LLM backplane
-- singleton deep LLM inference endpoint through a dedicated Deployment
-- internal-only ClusterIP service
-- internal-only network-policy ingress from chart pods
-- automatic runtime wiring so packaged services resolve the in-chart deep LLM URL instead of `externalServices.llmDeepUrl`
-- dependency-test and runtime-smoke coverage against the absorbed deep LLM backplane
+- optional singleton fast LLM inference endpoint through a dedicated Deployment when `llmFast.enabled=true`
+- optional singleton deep LLM inference endpoint through a dedicated Deployment when `llmDeep.enabled=true`
+- packaged LLM services require explicit `model.name` and `model.servedModelName`; the chart no longer defaults to a vendor model identity
+- internal-only ClusterIP service and network-policy ingress from chart pods when packaged LLM services are enabled
+- automatic runtime wiring so packaged services resolve the in-chart LLM URLs instead of `externalServices.llmFastUrl` / `externalServices.llmDeepUrl`
+- dependency-test and runtime-smoke coverage only when packaged LLM services or explicit external model endpoints are intentionally enabled
 
 The remaining critical backplane is still external by default:
 
@@ -323,17 +319,12 @@ When embeddings remain external:
   - in `k3s`, do not point this at a Docker Compose service name like `http://bge-emb:8000`
   - use a node-reachable or externally reachable URL instead, such as `http://<k3s-node-ip>:9002`
 
-When fast LLM remains external:
+When model endpoints are external:
 
-- `externalServices.llmFastUrl` stays the runtime fast-reasoning endpoint contract
-  - in `k3s`, do not point this at a Docker Compose service name like `http://qwen3-3b:8000`
-  - use a node-reachable or externally reachable URL instead, such as `http://<k3s-node-ip>:9003`
-
-When deep LLM remains external:
-
-- `externalServices.llmDeepUrl` stays the runtime deep-reasoning and graph-extraction endpoint contract
-  - in `k3s`, do not point this at a Docker Compose service name like `http://qwen3-14b:8000`
-  - use a node-reachable or externally reachable URL instead, such as `http://<k3s-node-ip>:9000`
+- prefer configuring reusable model endpoints and task assignments in Admin -> Models after tenant setup
+- set `externalServices.llmFastUrl` and `externalServices.llmDeepUrl` only for bootstrap, dependency-test, or non-DB fallback deployments
+- in `k3s`, do not point these at Docker Compose service names; use node-reachable or externally reachable URLs instead
+- Helm no longer chooses a default fast/deep model name; model identity belongs to the runtime model library and task bindings
 
 Canonical guidance for this boundary lives in:
 
