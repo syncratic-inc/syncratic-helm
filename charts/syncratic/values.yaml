@@ -866,6 +866,9 @@ gateway:
     INSIGHTS_MODEL_NARRATIVE_WORKER_INTERVAL_S: "5"
     INSIGHTS_MODEL_NARRATIVE_WORKER_BATCH_SIZE: "3"
     INSIGHTS_MODEL_NARRATIVE_RETRY_DELAY_S: "300"
+    INSIGHTS_MODEL_NARRATIVE_AUTO_RETRY_REJECTED_ENABLED: "true"
+    INSIGHTS_MODEL_NARRATIVE_AUTO_RETRY_LOOKBACK_HOURS: "72"
+    INSIGHTS_MODEL_NARRATIVE_AUTO_RETRY_LIMIT: "25"
     PRIVACY_ENGINE_ENABLED: "true"
     PRIVACY_ENGINE_SCAN_ENABLED: "true"
     PRIVACY_ENGINE_CONTEXT_GATE_ENABLED: "true"
@@ -875,6 +878,10 @@ gateway:
     PRIVACY_ENGINE_TOKEN_TTL_SECONDS: "86400"
     CONNECTOR_WORKER_ENABLED: "false"
     CONNECTOR_WORKER_INTERVAL_S: "60"
+    SHAREPOINT_CONNECTOR_CLIENT_ID: ""
+    SHAREPOINT_CONNECTOR_CLIENT_SECRET: ""
+    SHAREPOINT_CONNECTOR_REDIRECT_URL: ""
+    SHAREPOINT_CONNECTOR_SCOPE: "openid email profile offline_access Sites.Read.All Files.Read.All User.Read.All GroupMember.Read.All"
     TRANSFORMER_ENABLE_PDF: "true"
     ENTITLEMENT_ENABLED: "true"
     ENTITLEMENT_CACHE_TTL_SECONDS: "60"
@@ -906,6 +913,7 @@ gateway:
       edgeIngressProofSummary: ""
       privacyEngineRuntimeConfigProof: ""
       productionEvidencePackageManifest: ""
+      retrievalEnginePromotionSummary: ""
   persistence:
     uploads:
       enabled: true
@@ -1182,6 +1190,34 @@ frontend:
       port: http
     initialDelaySeconds: 30
     periodSeconds: 15
+
+retrievalEngine:
+  enabled: false
+  replicaCount: 1
+  mode: local
+  timeoutSeconds: 30
+  canaryPercent: 0
+  sharedTokenSecret:
+    existingSecret: ""
+    key: RETRIEVAL_ENGINE_SHARED_TOKEN
+  image:
+    repository: syncratic/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8099
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  podAnnotations: {}
+  extraEnv:
+    RETRIEVAL_ENGINE_VERSION: "local"
+
 
 help:
   enabled: true
