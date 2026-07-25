@@ -1736,8 +1736,7 @@
               "type": "boolean"
             },
             "password": {
-              "type": "string",
-              "minLength": 1
+              "type": "string"
             },
             "keys": {
               "type": "object",

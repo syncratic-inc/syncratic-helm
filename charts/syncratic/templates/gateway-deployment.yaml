@@ -124,31 +124,6 @@ spec:
             - name: KEYCLOAK_ADMIN_CLIENT_SECRET_FILE
               value: {{ printf "%s/%s" .Values.auth.identityProvisioning.secret.mountPath .Values.auth.identityProvisioning.secret.keys.adminClientSecret | quote }}
             {{- end }}
-            {{- if .Values.auth.bootstrapSmtp.enabled }}
-            - name: SMTP_HOST
-              value: {{ .Values.auth.bootstrapSmtp.host | quote }}
-            - name: SMTP_PORT
-              value: {{ .Values.auth.bootstrapSmtp.port | quote }}
-            - name: SMTP_USERNAME
-              value: {{ .Values.auth.bootstrapSmtp.username | quote }}
-            - name: SMTP_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "syncratic.bootstrapSmtpSecretName" . }}
-                  key: {{ .Values.auth.bootstrapSmtp.passwordSecret.key }}
-            - name: SMTP_USE_STARTTLS
-              value: {{ .Values.auth.bootstrapSmtp.useStarttls | quote }}
-            - name: SMTP_USE_SSL
-              value: {{ .Values.auth.bootstrapSmtp.useSsl | quote }}
-            - name: SMTP_FROM_EMAIL
-              value: {{ .Values.auth.bootstrapSmtp.fromEmail | quote }}
-            - name: SMTP_FROM_NAME
-              value: {{ .Values.auth.bootstrapSmtp.fromName | quote }}
-            {{- if .Values.auth.bootstrapSmtp.replyTo }}
-            - name: SMTP_REPLY_TO
-              value: {{ .Values.auth.bootstrapSmtp.replyTo | quote }}
-            {{- end }}
-            {{- end }}
             - name: NOTIFICATION_DISPATCHER_ENABLED
               value: {{ .Values.gateway.notifications.dispatcher.enabled | quote }}
             - name: NOTIFICATION_DISPATCH_BATCH_SIZE

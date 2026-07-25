@@ -38,12 +38,16 @@
 {{- end -}}
 
 {{- if .Values.auth.bootstrapSmtp.enabled -}}
-  {{- $bootstrapSmtpProvider := ternary "chart" "cluster" (and .Values.auth.bootstrapSmtp.passwordSecret.create (not .Values.auth.bootstrapSmtp.passwordSecret.existingSecret)) -}}
+  {{- $bootstrapSmtpProvider := ternary "chart" "cluster" (and .Values.auth.bootstrapSmtp.passwordSecret.create (not .Values.auth.bootstrapSmtp.passwordSecret.existingSecret) (not .Values.auth.bootstrapSmtp.configSecret.existingSecret)) -}}
+  {{- $bootstrapSmtpKeys := .Values.materialTests.bootstrapSmtpRequiredSecretKeys -}}
+  {{- if not .Values.auth.bootstrapSmtp.configSecret.existingSecret -}}
+    {{- $bootstrapSmtpKeys = list .Values.auth.bootstrapSmtp.passwordSecret.key -}}
+  {{- end -}}
   {{- $requiredSecrets = append $requiredSecrets (dict
     "name" (include "syncratic.bootstrapSmtpSecretName" .)
     "provider" $bootstrapSmtpProvider
-    "purpose" "bootstrap_smtp_password"
-    "requiredKeys" .Values.materialTests.bootstrapSmtpRequiredSecretKeys
+    "purpose" "first_boot_smtp_config"
+    "requiredKeys" $bootstrapSmtpKeys
   ) -}}
 {{- end -}}
 

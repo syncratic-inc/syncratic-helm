@@ -55,15 +55,31 @@ auth:
       adminClientSecret: ""
   bootstrapSmtp:
     enabled: false
-    host: "smtp-relay.brevo.com"
+    # First-boot SMTP is for initial Local IdP required-action email only.
+    # For customer-visible values, put SMTP fields in a Kubernetes Secret and
+    # reference it through configSecret. Inline fields are retained only for
+    # legacy/bootstrap compatibility and are rejected in online_registry mode.
+    host: ""
     port: 587
-    username: "9f1a6c001@smtp-brevo.com"
+    username: ""
     useStarttls: true
     useSsl: false
-    fromEmail: "neoreply@syncratic.co"
-    fromName: "Noreply Syncratic"
+    fromEmail: ""
+    fromName: ""
     replyTo: ""
     syncKeycloak: true
+    configSecret:
+      existingSecret: ""
+      keys:
+        host: SMTP_HOST
+        port: SMTP_PORT
+        username: SMTP_USERNAME
+        password: SMTP_PASSWORD
+        useStarttls: SMTP_USE_STARTTLS
+        useSsl: SMTP_USE_SSL
+        fromEmail: SMTP_FROM_EMAIL
+        fromName: SMTP_FROM_NAME
+        replyTo: SMTP_REPLY_TO
     passwordSecret:
       existingSecret: ""
       create: false
@@ -317,6 +333,12 @@ materialTests:
   identityProvisioningRequiredSecretKeys:
     - KEYCLOAK_ADMIN_CLIENT_SECRET
   bootstrapSmtpRequiredSecretKeys:
+    - SMTP_HOST
+    - SMTP_PORT
+    - SMTP_FROM_EMAIL
+    - SMTP_FROM_NAME
+    - SMTP_USE_STARTTLS
+    - SMTP_USE_SSL
     - SMTP_PASSWORD
   keycloakAdminRequiredSecretKeys:
     - KEYCLOAK_ADMIN
@@ -355,15 +377,15 @@ security:
   existingSecret: ""
   bootstrapSecret:
     create: true
-    entitlementServiceToken: "syncratic-les-internal-v1"
+    entitlementServiceToken: ""
     nextAuthSecret: ""
     keycloakClientSecret: ""
     connectorTokenEncryptionKey: ""
-    neo4jPassword: "syncratic-neo4j-v1"
+    neo4jPassword: ""
 
 externalServices:
   connectionSecret:
-    existingSecret: ""
+    existingSecret: "syncratic-external-connections"
     keys:
       postgresUrl: DATABASE_URL
       gatewayMigrationDsn: GATEWAY_MIGRATION_DSN
@@ -382,8 +404,8 @@ externalServices:
     existingSecret: ""
     key: ca.crt
     mountPath: /etc/syncratic/external-trust
-  postgresUrl: "postgresql+psycopg://postgres:postgres@rag-pg:5432/syncratic_rag"
-  gatewayMigrationDsn: "postgresql://postgres:postgres@rag-pg:5432/syncratic_rag"
+  postgresUrl: ""
+  gatewayMigrationDsn: ""
   redisUrl: "redis://redis:6379/0"
   qdrantUrl: "http://qdrant:6333"
   neo4jUri: "bolt://neo4j:7687"
@@ -606,7 +628,7 @@ postgres:
       applicationDsn: DATABASE_URL
       evaluationDsn: EVAL_DB_DSN
       gatewayMigrationDsn: GATEWAY_MIGRATION_DSN
-    password: "syncratic-postgres-v1"
+    password: ""
   image:
     repository: postgres
     tag: "15"
@@ -878,6 +900,12 @@ gateway:
     PRIVACY_ENGINE_TOKEN_TTL_SECONDS: "86400"
     CONNECTOR_WORKER_ENABLED: "false"
     CONNECTOR_WORKER_INTERVAL_S: "60"
+    OPERATIONS_BACKUP_ENABLED: "true"
+    OPERATIONS_BACKUP_TRIGGER_MODE: "deployment_runner"
+    OPERATIONS_BACKUP_OUTPUT_ROOT: "/srv/syncratic/phase2/operations/backups"
+    # Optional platform fallback only. Tenant-owned Microsoft connector credentials
+    # should normally be configured in Admin -> Connectors. Keep `aspx` in
+    # SharePoint connector file types when Site Pages should be ingested.
     SHAREPOINT_CONNECTOR_CLIENT_ID: ""
     SHAREPOINT_CONNECTOR_CLIENT_SECRET: ""
     SHAREPOINT_CONNECTOR_REDIRECT_URL: ""
@@ -1169,7 +1197,7 @@ frontend:
     PORT: "80"
     NEXT_PUBLIC_APP_NAME: "Syncratic"
     NEXT_PUBLIC_API_BASE: "/api"
-    INTERNAL_API_KEY: "key-internal-syncratic-123"
+    INTERNAL_API_KEY: ""
   startupProbe:
     exec:
       command:

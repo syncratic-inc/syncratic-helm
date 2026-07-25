@@ -2,6 +2,10 @@
 # The chart does not create these artifacts. Operators must generate and retain them first.
 
 gateway:
+  extraEnv:
+    OPERATIONS_BACKUP_ENABLED: "true"
+    OPERATIONS_BACKUP_TRIGGER_MODE: "deployment_runner"
+    OPERATIONS_BACKUP_OUTPUT_ROOT: "/srv/syncratic/phase2/operations/backups"
   notifications:
     dispatcher:
       enabled: true

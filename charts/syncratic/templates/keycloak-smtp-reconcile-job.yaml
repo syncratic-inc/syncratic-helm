@@ -70,6 +70,55 @@ spec:
                 secretKeyRef:
                   name: {{ include "syncratic.keycloakAdminSecretName" . }}
                   key: {{ .Values.keycloak.adminSecret.keys.password }}
+            {{- if .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.host }}
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.port }}
+            - name: SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.username }}
+                  optional: true
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.password }}
+            - name: SMTP_USE_STARTTLS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.useStarttls }}
+            - name: SMTP_USE_SSL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.useSsl }}
+            - name: SMTP_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.fromEmail }}
+            - name: SMTP_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.fromName }}
+            - name: SMTP_REPLY_TO
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.bootstrapSmtp.configSecret.existingSecret }}
+                  key: {{ .Values.auth.bootstrapSmtp.configSecret.keys.replyTo }}
+                  optional: true
+            {{- else }}
             - name: SMTP_HOST
               value: {{ .Values.auth.bootstrapSmtp.host | quote }}
             - name: SMTP_PORT
@@ -89,4 +138,5 @@ spec:
               value: {{ .Values.auth.bootstrapSmtp.fromEmail | quote }}
             - name: SMTP_FROM_NAME
               value: {{ .Values.auth.bootstrapSmtp.fromName | quote }}
+            {{- end }}
 {{- end }}

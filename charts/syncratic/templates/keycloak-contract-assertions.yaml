@@ -25,14 +25,17 @@
 {{- end -}}
 
 {{- if .Values.auth.bootstrapSmtp.enabled -}}
-  {{- if not (.Values.auth.bootstrapSmtp.host | trim) -}}
-    {{- fail "auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.host" -}}
-  {{- end -}}
-  {{- if not (.Values.auth.bootstrapSmtp.fromEmail | trim) -}}
-    {{- fail "auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.fromEmail" -}}
-  {{- end -}}
-  {{- if and (not (.Values.auth.bootstrapSmtp.passwordSecret.existingSecret | trim)) (not .Values.auth.bootstrapSmtp.passwordSecret.create) -}}
-    {{- fail "auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.passwordSecret.existingSecret or passwordSecret.create=true" -}}
+  {{- $bootstrapSmtpConfigSecret := .Values.auth.bootstrapSmtp.configSecret.existingSecret | trim -}}
+  {{- $legacyBootstrapSmtp := or (.Values.auth.bootstrapSmtp.host | trim) (.Values.auth.bootstrapSmtp.fromEmail | trim) (.Values.auth.bootstrapSmtp.passwordSecret.existingSecret | trim) .Values.auth.bootstrapSmtp.passwordSecret.create -}}
+  {{- if eq .Values.global.deliveryMode "online_registry" -}}
+    {{- if not $bootstrapSmtpConfigSecret -}}
+      {{- fail "global.deliveryMode=online_registry with auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.configSecret.existingSecret so SMTP material is not exposed in values" -}}
+    {{- end -}}
+    {{- if or (.Values.auth.bootstrapSmtp.host | trim) (.Values.auth.bootstrapSmtp.username | trim) (.Values.auth.bootstrapSmtp.fromEmail | trim) (.Values.auth.bootstrapSmtp.fromName | trim) (.Values.auth.bootstrapSmtp.replyTo | trim) .Values.auth.bootstrapSmtp.passwordSecret.create (.Values.auth.bootstrapSmtp.passwordSecret.existingSecret | trim) -}}
+      {{- fail "global.deliveryMode=online_registry forbids inline auth.bootstrapSmtp fields and legacy passwordSecret; use auth.bootstrapSmtp.configSecret.existingSecret" -}}
+    {{- end -}}
+  {{- else if not (or $bootstrapSmtpConfigSecret $legacyBootstrapSmtp) -}}
+    {{- fail "auth.bootstrapSmtp.enabled=true requires auth.bootstrapSmtp.configSecret.existingSecret or legacy bootstrap SMTP values" -}}
   {{- end -}}
 {{- end -}}
 

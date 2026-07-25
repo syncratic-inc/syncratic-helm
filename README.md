@@ -18,7 +18,7 @@ helm install syncratic ./charts/syncratic   --namespace syncratic   --create-nam
 ## Install From Packaged Chart
 
 ```bash
-helm install syncratic ./packages/syncratic-0.1.0.tgz   --namespace syncratic   --create-namespace   -f customer-values.yaml
+helm install syncratic ./packages/syncratic-0.1.6.tgz   --namespace syncratic   --create-namespace   -f customer-values.yaml
 ```
 
 ## Helm Repository Usage

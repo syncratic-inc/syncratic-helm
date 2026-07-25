@@ -53,7 +53,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "syncratic.bootstrapSmtpSecretName" -}}
-{{- if .Values.auth.bootstrapSmtp.passwordSecret.existingSecret -}}
+{{- if .Values.auth.bootstrapSmtp.configSecret.existingSecret -}}
+{{- .Values.auth.bootstrapSmtp.configSecret.existingSecret -}}
+{{- else if .Values.auth.bootstrapSmtp.passwordSecret.existingSecret -}}
 {{- .Values.auth.bootstrapSmtp.passwordSecret.existingSecret -}}
 {{- else -}}
 {{- printf "%s-bootstrap-smtp" (include "syncratic.fullname" .) -}}

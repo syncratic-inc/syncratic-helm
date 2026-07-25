@@ -817,24 +817,31 @@ SAML group reconciliation is request-time and dynamic. Syncratic does not persis
 
 ## First-run bootstrap SMTP
 
-First-time administrator claim requires email delivery because the claim flow provisions the initial Keycloak identity and sends required actions for email verification and password creation. The chart supports a bootstrap SMTP relay under `auth.bootstrapSmtp` so a fresh deployment can send that setup email before a tenant administrator has configured tenant-owned SMTP in the Admin UI.
+First-time administrator claim may require email delivery because the claim flow provisions the initial Keycloak identity and can send required actions for email verification and password creation. The chart supports a first-boot SMTP Secret reference under `auth.bootstrapSmtp.configSecret` so Keycloak can send that setup email without exposing SMTP relay details in customer-visible values.
 
-The bootstrap relay is intentionally a platform default, not the final tenant notification configuration. After the initial administrator completes the claim, they must open `Admin -> Notifications -> Email provider` and replace the bootstrap SMTP settings with production-owned tenant settings. A tenant override takes precedence over the platform environment SMTP values used during bootstrap.
+The first-boot SMTP Secret is not the application notification provider. After the initial administrator completes the claim, ongoing SMTP must be configured from `Admin -> Notifications -> Email provider`; the gateway no longer receives Helm-provided `SMTP_*` environment variables for normal notification delivery.
 
 Recommended production pattern:
 
-1. create a Kubernetes Secret for the SMTP password outside Git
+1. create a Kubernetes Secret containing the first-boot SMTP fields outside Git
 2. enable `auth.bootstrapSmtp.enabled=true`
-3. point `auth.bootstrapSmtp.passwordSecret.existingSecret` at the Secret
+3. point `auth.bootstrapSmtp.configSecret.existingSecret` at the Secret
 4. keep `auth.bootstrapSmtp.syncKeycloak=true` so Keycloak `execute-actions-email` works for first-user setup
-5. require the claimed administrator to replace SMTP from the UI after login
+5. require the claimed administrator to configure ongoing SMTP from the UI after login
 
 Example Secret creation:
 
 ```bash
-kubectl create secret generic syncratic-bootstrap-smtp \
+kubectl create secret generic syncratic-first-boot-smtp \
   -n syncratic \
-  --from-literal=SMTP_PASSWORD='<smtp-password>'
+  --from-literal=SMTP_HOST='<smtp-host>' \
+  --from-literal=SMTP_PORT='587' \
+  --from-literal=SMTP_USERNAME='<smtp-username>' \
+  --from-literal=SMTP_PASSWORD='<smtp-password>' \
+  --from-literal=SMTP_FROM_EMAIL='<verified-sender>' \
+  --from-literal=SMTP_FROM_NAME='Syncratic' \
+  --from-literal=SMTP_USE_STARTTLS='true' \
+  --from-literal=SMTP_USE_SSL='false'
 ```
 
 Example values overlay:
@@ -847,23 +854,12 @@ auth:
     sendRequiredActionEmails: true
   bootstrapSmtp:
     enabled: true
-    host: smtp-relay.brevo.com
-    port: 587
-    username: 9f1a6c001@smtp-brevo.com
-    useStarttls: true
-    useSsl: false
-    fromEmail: neoreply@syncratic.co
-    fromName: Noreply Syncratic
     syncKeycloak: true
-    passwordSecret:
-      existingSecret: syncratic-bootstrap-smtp
-      key: SMTP_PASSWORD
+    configSecret:
+      existingSecret: syncratic-first-boot-smtp
 ```
 
-When enabled, Helm wires the same bootstrap SMTP posture into two places:
-
-- Gateway platform SMTP environment variables, used as the fallback notification provider until a tenant override exists.
-- A post-install/post-upgrade Keycloak SMTP reconciliation job, used so Keycloak can send required-action emails for verification and password setup.
+When enabled, Helm wires first-boot SMTP only into the post-install/post-upgrade Keycloak SMTP reconciliation job. The gateway application notification provider is tenant-owned and configured from Admin -> Notifications.
 
 Do not commit SMTP passwords into values files. Use cluster Secrets, External Secrets, or sealed secret tooling.
 
